@@ -1,41 +1,46 @@
 services:
+  main:
+    build: .
+    container_name: main
+    volumes:
+      - ./app/src:/app/src
+      - ./app/data:/app/data
+    restart: "on-failure"
+    depends_on:
+      pgdatabase:
+        condition: service_healthy
   # PostgreSQL Database (Data Warehouse)
-  postgres:
+  pgdatabase:
     image: postgres:16-alpine
-    container_name: data_warehouse_postgres
+    container_name: trades_data_warehouse_postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trading_warehouse
+      POSTGRES_DB: Trades_Database
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - 5454:5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - data_network
+      - ./app/volumes/data_postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-
+      retries: 5 
   # pgAdmin for Database Visualization
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4
     container_name: pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_DEFAULT_EMAIL: postgres@postgres.com
+      PGADMIN_DEFAULT_PASSWORD: postgres
     ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - data_network
+      - 8090:80
     depends_on:
-      - postgres
+      - pgdatabase
+    restart: on-failure
+    volumes:
+      - ./app/volumes/pgadmin_data:/var/lib/pgadmin
 
   # Adminer (Lightweight Alternative to pgAdmin) - BONUS
   adminer:
@@ -43,19 +48,7 @@ services:
     container_name: adminer
     ports:
       - "8080:8080"
-    networks:
-      - data_network
     depends_on:
-      - postgres
+      - pgdatabase
     environment:
-      ADMINER_DEFAULT_SERVER: postgres
-
-volumes:
-  postgres_data:
-    driver: local
-  pgadmin_data:
-    driver: local
-
-networks:
-  data_network:
-    driver: bridge
+      ADMINER_DEFAULT_SERVER: pgdatabase

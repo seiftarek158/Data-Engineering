@@ -1,0 +1,11 @@
+transaction_id,timestamp,customer_id,stock_ticker,transaction_type,quantity,average_trade_size,stock_price,total_trade_amount,customer_account_type,day_name,is_weekend,is_holiday,stock_liquidity_tier,stock_sector,stock_industry
+4143,2023-10-27,4747,STK012,SELL,205,202.78,2.461794831218533,2403.796905922583,Retail,Friday,False,False,High,Technology,Hardware
+1931,2023-05-19,193,STK011,BUY,144,197.61,4.489773957454889,12830.58762003032,Retail,Friday,False,False,Mid,Finance,Asset Management
+4929,2023-12-18,1157,STK012,SELL,207,185.96,2.5831250676406357,2740.3580359657085,Retail,Monday,False,False,High,Technology,Hardware
+8608,2024-09-02,4955,STK018,SELL,108,204.45,4.5309893510025,10027.84074507769,Retail,Monday,False,False,Mid,Technology,Software
+1139,2023-03-22,480,STK009,BUY,914,914.0,5.713387809999694,276846.4727327463,Retail,Wednesday,False,False,High,Technology,Hardware
+9872,2024-11-28,4132,STK018,BUY,202,522.2,4.8755677094041925,26471.802975036142,Retail,Thursday,False,False,Mid,Technology,Software
+110,2023-01-06,1964,STK016,BUY,74,74.0,4.387554134862898,5952.813405625547,Retail,Friday,False,False,Low,Energy,Renewables
+4088,2023-10-24,1513,STK020,SELL,96,179.31,3.9885913993924005,5181.964916622019,Retail,Tuesday,False,False,Mid,Energy,Oil & Gas
+4769,2023-12-07,4955,STK009,BUY,572,209.15,6.037628366131133,239609.8746675623,Retail,Thursday,False,False,High,Technology,Hardware
+2461,2023-06-28,4955,STK009,BUY,76,202.89,5.815269088889085,25489.004171168697,Retail,Wednesday,False,False,High,Technology,Hardware

@@ -1,7 +1,6 @@
 pandas
 numpy
+scipy
+PyYAML
 sqlalchemy
 psycopg2-binary
-jupyter
-notebook
-openpyxl

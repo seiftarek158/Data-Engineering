@@ -1,26 +1,15 @@
-# Dockerfile for Python application
 FROM python:3.12-slim
 
-# Set working directory
+# Install PostgreSQL development packages
+RUN apt-get update && \
+    apt-get install -y libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt /app/requirements.txt
 
-# Copy requirements file
-COPY requirements.txt .
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY . .
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-
-# Command to run the application
-CMD ["python", "-u"]
+ENTRYPOINT ["python", "src/app.py"]
