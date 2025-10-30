@@ -14,7 +14,7 @@ Each column in the dataset is described below:
 | **transaction_type**      | Specifies whether the transaction was a buy or sell action.                                     | String (Categorical) | BUY               |
 | **quantity**              | The total number of stock units involved in the transaction.                                    | Integer              | 503               |
 | **average_trade_size**    | The average quantity of shares traded per transaction for the customer and stock.               | Float                | 195.33            |
-| **stock_price**           | The price per share of the stock at the time the transaction occurred.                          | Float                | 4.917154          |
+| **stock_price**           | The log-transformed price per share at the time the transaction occurred. To revert to the original price: raw_price = exp(stock_price) (e.g., exp(4.917154) ≈ 136.6). | Float                | 4.917154          |
 | **total_trade_amount**    | The total value of the transaction calculated as quantity multiplied by stock price.            | Float                | 68716.45          |
 | **customer_account_type** | The classification of the customer’s account, such as retail or institutional.                  | String (Categorical) | Retail            |
 | **day_name**              | The day of the week on which the transaction occurred.                                          | String (Categorical) | Monday            |
