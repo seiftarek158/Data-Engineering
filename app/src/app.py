@@ -86,7 +86,7 @@ def handle_outliers_logtransformation(df,col):
 
 def handle_outliers_winsorizecapped(df,col):
     df_copy = df.copy()
-    df_copy[col+"_capped"] = mstats.winsorize(df_copy[col], limits=[0.15, 0.15])
+    df_copy[col+"_winsorized"] = mstats.winsorize(df_copy[col], limits=[0.15, 0.15])
     return df_copy
 
 def integrate_data(dtp, trades, dc, dd, ds):
@@ -113,14 +113,15 @@ def integrate_data(dtp, trades, dc, dd, ds):
     # Calculate total_trade_amount
     integrated['total_trade_amount'] = integrated['stock_price'] * integrated['quantity']
     required_columns = ['transaction_id', 'timestamp', 'customer_id', 'stock_ticker', 
-                   'transaction_type', 'quantity', 'average_trade_size', 'stock_price_log',
+                   'transaction_type', 'quantity', 'average_trade_size_winsorized', 'stock_price_log',
                    'total_trade_amount', 'customer_account_type', 'day_name', 
                    'is_weekend', 'is_holiday', 'stock_liquidity_tier', 
                    'stock_sector', 'stock_industry']
     integrated = integrated[required_columns]
     integrated.columns = [col.lower() for col in integrated.columns]
     #stock_price_log change to stock_price
-    integrated = integrated.rename(columns={'stock_price_log': 'stock_price'})
+    integrated = integrated.rename(columns={'stock_price_log': 'stock_price',
+                                            'average_trade_size_winsorized': 'average_trade_size'})
     return integrated
 
 if __name__ == '__main__':
