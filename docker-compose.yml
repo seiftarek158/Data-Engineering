@@ -1,0 +1,54 @@
+services:
+  main:
+    build: .
+    container_name: main
+    volumes:
+      - ./app/src:/app/src
+      - ./app/data:/app/data
+    restart: "on-failure"
+    depends_on:
+      pgdatabase:
+        condition: service_healthy
+  # PostgreSQL Database (Data Warehouse)
+  pgdatabase:
+    image: postgres:16
+    container_name: trades_data_warehouse_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: Trades_Database
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - 5454:5432
+    volumes:
+      - ./app/volumes/data_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5 
+  # pgAdmin for Database Visualization
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: postgres@postgres.com
+      PGADMIN_DEFAULT_PASSWORD: postgres
+    ports:
+      - 8090:80
+    depends_on:
+      - pgdatabase
+    restart: on-failure
+    volumes:
+      - ./app/volumes/pgadmin_data:/var/lib/pgadmin
+
+  # Adminer (Lightweight Alternative to pgAdmin) - BONUS
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - pgdatabase
+    environment:
+      ADMINER_DEFAULT_SERVER: pgdatabase
