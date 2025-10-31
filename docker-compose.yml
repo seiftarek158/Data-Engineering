@@ -11,7 +11,7 @@ services:
         condition: service_healthy
   # PostgreSQL Database (Data Warehouse)
   pgdatabase:
-    image: postgres:16-alpine
+    image: postgres:16
     container_name: trades_data_warehouse_postgres
     environment:
       POSTGRES_USER: postgres
