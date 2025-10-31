@@ -1,0 +1,11 @@
+transaction_id,timestamp,customer_id,stock_ticker,transaction_type,quantity,average_trade_size,stock_price,total_trade_amount,customer_account_type,day_name,is_weekend,is_holiday,stock_liquidity_tier,stock_sector,stock_industry
+8850,2024-09-18,2101,STK012,BUY,36,36.0,1.9479879382244676,252.52414721575983,Institutional,Wednesday,False,False,High,Technology,Hardware
+8370,2024-08-15,4023,STK020,BUY,113,174.73,3.955365723191316,5900.270887076529,Retail,Thursday,False,False,Mid,Energy,Oil & Gas
+6389,2024-03-25,2231,STK006,BUY,64,64.0,4.134821297237998,3998.6192003633837,Retail,Monday,False,False,High,Energy,Oil & Gas
+2736,2023-07-19,4955,STK013,BUY,196,203.54,4.984631863160435,28645.353353959712,Retail,Wednesday,False,False,Mid,Energy,Utilities
+827,2023-02-28,4747,STK009,BUY,27,166.68,5.612894221532674,7396.269922167168,Retail,Tuesday,False,False,High,Technology,Hardware
+8499,2024-08-26,871,STK012,BUY,384,589.5,2.111361321743065,3171.6393373848196,Retail,Monday,False,False,High,Technology,Hardware
+2962,2023-08-03,3588,STK012,BUY,146,172.57,2.7672507952405176,2323.563823759313,Retail,Thursday,False,False,High,Technology,Hardware
+9029,2024-10-01,4865,STK009,BUY,96,76.5,6.121134653381977,43716.58571321951,Retail,Tuesday,False,False,High,Technology,Hardware
+2176,2023-06-07,845,STK002,SELL,20,151.71,5.109636989491316,3312.2045141670565,Retail,Wednesday,False,False,Low,Consumer,Retail
+812,2023-02-27,1743,STK012,BUY,107,71.5,3.15529094450226,2510.2051929510476,Retail,Monday,False,False,High,Technology,Hardware
