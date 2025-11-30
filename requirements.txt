@@ -4,3 +4,5 @@ scipy
 PyYAML
 sqlalchemy
 psycopg2-binary
+kafka-python
+scikit-learn
