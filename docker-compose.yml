@@ -47,7 +47,7 @@ services:
     image: adminer:latest
     container_name: adminer
     ports:
-      - "8080:8080"
+      - "8070:8070"
     depends_on:
       - pgdatabase
     environment:

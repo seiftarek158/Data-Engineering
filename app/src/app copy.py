@@ -124,7 +124,76 @@ def integrate_data(dtp, trades, dc, dd, ds):
                                             'average_trade_size_winsorized': 'average_trade_size'})
     return integrated
 
+from sklearn.preprocessing import LabelEncoder
+import pandas as pd
 
+def encode_data(df):
+    """
+    Encodes categorical columns in the integrated dataframe.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        The integrated dataframe from milestone 1 containing:
+        - stock_ticker
+        - transaction_type
+        - customer_account_type
+        - day_name
+        - is_weekend (boolean - convert to binary)
+        - is_holiday (boolean - convert to binary)
+        - stock_sector
+        - stock_industry
+    
+    Returns:
+    --------
+    pandas.DataFrame
+        The dataframe with encoded columns
+    """
+    # Create a copy to avoid modifying the original dataframe
+    df_encoded = df.copy()
+    
+    # Initialize label encoders
+    le_stock = LabelEncoder()
+    le_transaction = LabelEncoder()
+    le_account = LabelEncoder()
+    le_sector = LabelEncoder()
+    le_industry = LabelEncoder()
+    
+    # Apply Label Encoding for ordinal/high-cardinality categorical variables
+    # 1. stock_ticker - 20 unique values (STK001-STK020)
+    df_encoded['stock_ticker_encoded'] = le_stock.fit_transform(df_encoded['stock_ticker'])
+    
+    # 2. transaction_type - 2 unique values (buy/sell)
+    df_encoded['transaction_type_encoded'] = le_transaction.fit_transform(df_encoded['transaction_type'])
+    
+    # 3. customer_account_type - 3 unique values (premium/standard/basic)
+    df_encoded['customer_account_type_encoded'] = le_account.fit_transform(df_encoded['customer_account_type'])
+    
+    # 4. day_name - Apply One-Hot Encoding (nominal categorical with 7 categories)
+    day_dummies = pd.get_dummies(df_encoded['day_name'], prefix='day')
+    df_encoded = pd.concat([df_encoded, day_dummies], axis=1)
+    
+    # 5. is_weekend - Convert boolean to binary (True/False → 1/0)
+    df_encoded['is_weekend_encoded'] = df_encoded['is_weekend'].astype(int)
+    
+    # 6. is_holiday - Convert boolean to binary (True/False → 1/0)
+    df_encoded['is_holiday_encoded'] = df_encoded['is_holiday'].astype(int)
+    
+    # 7. stock_sector - Label Encoding (multiple sectors)
+    df_encoded['stock_sector_encoded'] = le_sector.fit_transform(df_encoded['stock_sector'])
+    
+    # 8. stock_industry - Label Encoding (multiple industries)
+    df_encoded['stock_industry_encoded'] = le_industry.fit_transform(df_encoded['stock_industry'])
+    
+    df_encoded.attrs['encoders'] = {
+        'stock_ticker': le_stock,
+        'transaction_type': le_transaction,
+        'customer_account_type': le_account,
+        'stock_sector': le_sector,
+        'stock_industry': le_industry
+    }
+    
+    return df_encoded
 
 if __name__ == '__main__':
     dtp = extract_data('data/daily_trade_prices.csv')
@@ -168,6 +237,6 @@ if __name__ == '__main__':
     sample=pd.DataFrame(integrated.sample(10))
     sample.to_csv('data/sample_data.csv', index=False)
     #spark things before encoding
-    
+    encoded = encode_data(integrated)
 
     
