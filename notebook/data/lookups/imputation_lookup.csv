@@ -1,0 +1,7 @@
+Column Name,Stock Ticker,Number of Nulls,Imputation Method,Sample Dates
+stock_price (STK001),STK001,42,Trade-based calculation → Forward fill,['2023-02-06' '2023-02-20' '2023-03-17' '2023-03-24' '2023-04-04']
+stock_price (STK004),STK004,54,Trade-based calculation → Forward fill,['2023-02-03' '2023-02-06' '2023-02-22' '2023-03-03' '2023-03-28']
+stock_price (STK009),STK009,57,Trade-based calculation → Forward fill,['2023-01-05' '2023-01-19' '2023-01-30' '2023-02-07' '2023-02-09']
+stock_price (STK012),STK012,36,Trade-based calculation → Forward fill,['2023-01-03' '2023-01-09' '2023-01-11' '2023-02-28' '2023-03-02']
+stock_price (STK019),STK019,54,Trade-based calculation → Forward fill,['2023-01-27' '2023-02-03' '2023-02-13' '2023-02-14' '2023-02-24']
+stock_price (STK020),STK020,57,Trade-based calculation → Forward fill,['2023-01-03' '2023-01-31' '2023-02-01' '2023-02-15' '2023-02-27']
