@@ -52,3 +52,66 @@ services:
       - pgdatabase
     environment:
       ADMINER_DEFAULT_SERVER: pgdatabase
+
+  spark-master:
+    image: quay.io/jupyter/pyspark-notebook:2024-10-14
+    container_name: spark-master
+    command: >
+      bash -c "
+        mkdir -p /tmp/spark-logs &&
+        /usr/local/spark/sbin/start-master.sh &&
+        tail -f /tmp/spark-logs/* || tail -f /dev/null
+      "
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_LOG_DIR=/tmp/spark-logs
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+
+  spark-worker:
+    image: quay.io/jupyter/pyspark-notebook:2024-10-14
+    container_name: spark-worker
+    command: >
+      bash -c "
+        mkdir -p /tmp/spark-logs /tmp/spark-work &&
+        /usr/local/spark/sbin/start-worker.sh spark://spark-master:7077 &&
+        tail -f /tmp/spark-logs/* || tail -f /dev/null
+      "
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_LOG_DIR=/tmp/spark-logs
+      - SPARK_WORKER_DIR=/tmp/spark-work
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+      - SPARK_WORKER_WEBUI_PORT=8081
+      - SPARK_MASTER=spark://spark-master:7077
+  zookeeper:
+      image: confluentinc/cp-zookeeper:7.4.0
+      container_name: zookeeper
+      environment:
+        ZOOKEEPER_CLIENT_PORT: 2181
+        ZOOKEEPER_TICK_TIME: 2000
+      ports:
+        - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: "55_0654_Topic" # topic:partitions:replication-factor
+    depends_on:
+      - zookeeper
