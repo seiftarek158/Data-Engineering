@@ -1,6 +1,7 @@
 """
 Kafka Producer Script
-Streams data from stream.csv to Kafka topic with 300ms delay between records
+Streams data ONLY from stream.csv to Kafka topic with 300ms delay between records
+Sends EOS (End of Stream) message when complete
 """
 
 import pandas as pd
@@ -10,8 +11,8 @@ from kafka import KafkaProducer
 
 # Configuration
 KAFKA_BOOTSTRAP_SERVERS = ['localhost:9092']
-TOPIC_NAME = '55_1234_Topic'  # Replace with your actual ID
-STREAM_FILE = 'notebook/data/stream.csv'
+TOPIC_NAME = '55_0654_Topic'  # Replace with your actual ID
+STREAM_FILE = 'app/data/stream.csv'
 SLEEP_TIME = 0.3  # 300 milliseconds
 
 if __name__ == "__main__":

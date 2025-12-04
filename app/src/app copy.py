@@ -126,23 +126,193 @@ def integrate_data(dtp, trades, dc, dd, ds):
 
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
+import json
+from kafka import KafkaConsumer
+
+def encode_row(row, encoding_lookups):
+    """
+    Encodes a single row/record with the same logic as encode_data but for individual rows.
+    
+    Parameters:
+    -----------
+    row : dict
+        A single record/row to encode
+    encoding_lookups : dict
+        Dictionary containing all encoding mappings:
+        - 'stock_ticker': dict mapping ticker names to encoded values
+        - 'transaction_type': dict mapping transaction types to encoded values
+        - 'customer_account_type': dict mapping account types to encoded values
+        - 'stock_sector': dict mapping sectors to encoded values
+        - 'day_names': list of all possible day names
+        - 'industry_names': list of all possible industry names
+    
+    Returns:
+    --------
+    dict
+        The encoded row with all transformations applied
+    """
+    encoded_row = row.copy()
+    
+    # Label Encoding - Modify values directly using lookup dictionaries
+    if 'stock_ticker' in encoded_row and encoded_row['stock_ticker'] is not None:
+        encoded_row['stock_ticker'] = encoding_lookups['stock_ticker'].get(row['stock_ticker'], -1)
+    
+    if 'transaction_type' in encoded_row and encoded_row['transaction_type'] is not None:
+        encoded_row['transaction_type'] = encoding_lookups['transaction_type'].get(row['transaction_type'], -1)
+    
+    if 'customer_account_type' in encoded_row and encoded_row['customer_account_type'] is not None:
+        encoded_row['customer_account_type'] = encoding_lookups['customer_account_type'].get(row['customer_account_type'], -1)
+    
+    if 'stock_sector' in encoded_row and encoded_row['stock_sector'] is not None:
+        encoded_row['stock_sector'] = encoding_lookups['stock_sector'].get(row['stock_sector'], -1)
+    
+    # One-Hot Encoding - Create new columns and remove original
+    if 'day_name' in encoded_row and encoded_row['day_name'] is not None:
+        day_value = encoded_row['day_name']
+        for day in encoding_lookups['day_names']:
+            encoded_row[f'day_{day}'] = 1 if day_value == day else 0
+        del encoded_row['day_name']  # Remove original column
+    
+    if 'stock_industry' in encoded_row and encoded_row['stock_industry'] is not None:
+        industry_value = encoded_row['stock_industry']
+        for industry in encoding_lookups['industry_names']:
+            encoded_row[f'industry_{industry}'] = 1 if industry_value == industry else 0
+        del encoded_row['stock_industry']  # Remove original column
+    
+    # Boolean to Binary - Modify values directly
+    if 'is_weekend' in encoded_row:
+        encoded_row['is_weekend'] = int(encoded_row['is_weekend']) if encoded_row['is_weekend'] is not None else 0
+    
+    if 'is_holiday' in encoded_row:
+        encoded_row['is_holiday'] = int(encoded_row['is_holiday']) if encoded_row['is_holiday'] is not None else 0
+    
+    return encoded_row
+
+def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localhost:9092'], 
+                         main_data_path='data/integrated_main.csv', 
+                         output_file='data/FULL_STOCKS.csv'):
+    """
+    Consumes Kafka stream data row-by-row, preprocessing each record until EOS is received.
+    
+    Parameters:
+    -----------
+    topic_name : str
+        Kafka topic name to consume from
+    bootstrap_servers : list
+        List of Kafka bootstrap servers
+    main_data_path : str
+        Path to the main dataset for fitting encoders
+    output_file : str
+        Path to save the final combined dataset
+    
+    Returns:
+    --------
+    pandas.DataFrame
+        Combined dataset with streamed data appended
+    """
+    print("="*70)
+    print("KAFKA CONSUMER - RECEIVING STREAMED DATA")
+    print("="*70)
+    print(f"Topic: {topic_name}")
+    print("="*70 + "\n")
+
+    try:
+        # Load main dataset and create encoding lookups
+        print("Loading encoding lookups from main dataset...")
+        main_data = pd.read_csv(main_data_path)
+        
+        encoding_lookups = {}
+        
+        # Create lookup dictionaries for label encoding
+        encoding_lookups['stock_ticker'] = {val: idx for idx, val in enumerate(sorted(main_data['stock_ticker'].unique()))}
+        encoding_lookups['transaction_type'] = {val: idx for idx, val in enumerate(sorted(main_data['transaction_type'].unique()))}
+        encoding_lookups['customer_account_type'] = {val: idx for idx, val in enumerate(sorted(main_data['customer_account_type'].unique()))}
+        encoding_lookups['stock_sector'] = {val: idx for idx, val in enumerate(sorted(main_data['stock_sector'].unique()))}
+        
+        # Create lists for one-hot encoding
+        encoding_lookups['day_names'] = sorted(main_data['day_name'].unique().tolist())
+        encoding_lookups['industry_names'] = sorted(main_data['stock_industry'].unique().tolist())
+        
+        print("✓ Encoding lookups created successfully")
+        print(f"Main dataset: {len(main_data)} records")
+
+        # Create consumer
+        consumer = KafkaConsumer(
+            topic_name,
+            bootstrap_servers=bootstrap_servers,
+            auto_offset_reset='latest',
+            enable_auto_commit=True,
+            group_id='stock-data-consumer',
+            value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+        )
+
+        print(f"✓ Consumer subscribed to topic: {topic_name}")
+        print("Waiting for streamed data...")
+        print("="*70)
+
+        processed_records = []
+        record_count = 0
+
+        for message in consumer:
+            record = message.value
+
+            # Check for End of Stream
+            if 'EOS' in record and record['EOS']:
+                print("="*70)
+                print("✓ Received EOS (End of Stream) message")
+                break
+
+            # Process the record row-by-row using encode_row function
+            processed = encode_row(record, encoding_lookups)
+
+            processed_records.append(processed)
+            record_count += 1
+            
+            print(f"✓ Processed record {record_count}: Transaction ID {record.get('transaction_id')}")
+
+        consumer.close()
+        print("✓ Consumer closed")
+
+        if processed_records:
+            streamed_df = pd.DataFrame(processed_records)
+            print(f"\n✓ Processed {len(streamed_df)} streamed records")
+            
+            full_dataset = pd.concat([main_data, streamed_df], ignore_index=True)
+            print(f"✓ Combined dataset: {len(full_dataset)} total records")
+            
+            full_dataset.to_csv(output_file, index=False)
+            print(f"✓ Saved to {output_file}")
+            
+            print(f"\n✓ Streaming processing completed!")
+            print(f"Final dataset shape: {full_dataset.shape}")
+            
+            return full_dataset
+        else:
+            print("\n⚠ No records received from stream")
+            return main_data
+
+    except Exception as e:
+        print(f"\n✗ Error occurred: {str(e)}")
+        print("Make sure Kafka is running and producer has sent data")
+        raise
 
 def encode_data(df):
     """
     Encodes categorical columns in the integrated dataframe.
     
+    Label Encoding (modifies original columns):
+    - stock_ticker, transaction_type, customer_account_type, stock_sector
+    
+    One-Hot Encoding (creates new columns, removes original):
+    - day_name, stock_industry
+    
+    Boolean to Binary (modifies original columns):
+    - is_weekend, is_holiday
+    
     Parameters:
     -----------
     df : pandas.DataFrame
-        The integrated dataframe from milestone 1 containing:
-        - stock_ticker
-        - transaction_type
-        - customer_account_type
-        - day_name
-        - is_weekend (boolean - convert to binary)
-        - is_holiday (boolean - convert to binary)
-        - stock_sector
-        - stock_industry
+        The integrated dataframe from milestone 1
     
     Returns:
     --------
@@ -157,50 +327,102 @@ def encode_data(df):
     le_transaction = LabelEncoder()
     le_account = LabelEncoder()
     le_sector = LabelEncoder()
-    le_industry = LabelEncoder()
     
-    # Apply Label Encoding for ordinal/high-cardinality categorical variables
+    # Apply Label Encoding - MODIFY ORIGINAL COLUMNS
     # 1. stock_ticker - 20 unique values (STK001-STK020)
-    df_encoded['stock_ticker_encoded'] = le_stock.fit_transform(df_encoded['stock_ticker'])
+    df_encoded['stock_ticker'] = le_stock.fit_transform(df_encoded['stock_ticker'])
     
     # 2. transaction_type - 2 unique values (buy/sell)
-    df_encoded['transaction_type_encoded'] = le_transaction.fit_transform(df_encoded['transaction_type'])
+    df_encoded['transaction_type'] = le_transaction.fit_transform(df_encoded['transaction_type'])
     
     # 3. customer_account_type - 3 unique values (premium/standard/basic)
-    df_encoded['customer_account_type_encoded'] = le_account.fit_transform(df_encoded['customer_account_type'])
+    df_encoded['customer_account_type'] = le_account.fit_transform(df_encoded['customer_account_type'])
     
-    # 4. day_name - Apply One-Hot Encoding (nominal categorical with 7 categories)
-    day_dummies = pd.get_dummies(df_encoded['day_name'], prefix='day')
+    # 4. stock_sector - Multiple sectors
+    df_encoded['stock_sector'] = le_sector.fit_transform(df_encoded['stock_sector'])
+    
+    # Apply One-Hot Encoding
+    # 5. day_name - One-Hot Encoding (nominal categorical with 7 categories)
+    day_dummies = pd.get_dummies(df_encoded['day_name'], prefix='day', dtype=int)
     df_encoded = pd.concat([df_encoded, day_dummies], axis=1)
+    df_encoded.drop('day_name', axis=1, inplace=True)  # Remove original column
     
-    # 5. is_weekend - Convert boolean to binary (True/False → 1/0)
-    df_encoded['is_weekend_encoded'] = df_encoded['is_weekend'].astype(int)
+    # 6. stock_industry - One-Hot Encoding (multiple industries)
+    industry_dummies = pd.get_dummies(df_encoded['stock_industry'], prefix='industry', dtype=int)
+    df_encoded = pd.concat([df_encoded, industry_dummies], axis=1)
+    df_encoded.drop('stock_industry', axis=1, inplace=True)  # Remove original column
     
-    # 6. is_holiday - Convert boolean to binary (True/False → 1/0)
-    df_encoded['is_holiday_encoded'] = df_encoded['is_holiday'].astype(int)
+    # Boolean to Binary - MODIFY ORIGINAL COLUMNS
+    # 7. is_weekend - Convert boolean to binary (True/False → 1/0)
+    df_encoded['is_weekend'] = df_encoded['is_weekend'].astype(int)
     
-    # 7. stock_sector - Label Encoding (multiple sectors)
-    df_encoded['stock_sector_encoded'] = le_sector.fit_transform(df_encoded['stock_sector'])
+    # 8. is_holiday - Convert boolean to binary (True/False → 1/0)
+    df_encoded['is_holiday'] = df_encoded['is_holiday'].astype(int)
     
-    # 8. stock_industry - Label Encoding (multiple industries)
-    df_encoded['stock_industry_encoded'] = le_industry.fit_transform(df_encoded['stock_industry'])
+    # Print encoding information
+    print("=" * 70)
+    print("ENCODING SUMMARY")
+    print("=" * 70)
     
+    print(f"\n1. stock_ticker (Label Encoding - Original Column Modified):")
+    print(f"   - Unique values encoded: {len(le_stock.classes_)}")
+    print(f"   - Encoded range: 0-{len(le_stock.classes_)-1}")
+    print(f"   - Sample mapping: {dict(list(zip(le_stock.classes_[:5], range(5))))}")
+    
+    print(f"\n2. transaction_type (Label Encoding - Original Column Modified):")
+    print(f"   - Unique values: {len(le_transaction.classes_)}")
+    print(f"   - Mapping: {dict(zip(le_transaction.classes_, le_transaction.transform(le_transaction.classes_)))}")
+    
+    print(f"\n3. customer_account_type (Label Encoding - Original Column Modified):")
+    print(f"   - Unique values: {len(le_account.classes_)}")
+    print(f"   - Mapping: {dict(zip(le_account.classes_, le_account.transform(le_account.classes_)))}")
+    
+    print(f"\n4. stock_sector (Label Encoding - Original Column Modified):")
+    print(f"   - Unique sectors: {len(le_sector.classes_)}")
+    print(f"   - Sectors: {sorted(le_sector.classes_)}")
+    print(f"   - Encoded range: 0-{len(le_sector.classes_)-1}")
+    
+    print(f"\n5. day_name (One-Hot Encoding - Original column removed):")
+    print(f"   - Unique values: {len(day_dummies.columns)}")
+    print(f"   - New columns created: {list(day_dummies.columns)}")
+    print(f"   - Values: 0 or 1 (binary)")
+    
+    print(f"\n6. stock_industry (One-Hot Encoding - Original column removed):")
+    print(f"   - Unique values: {len(industry_dummies.columns)}")
+    print(f"   - New columns created: {list(industry_dummies.columns)}")
+    print(f"   - Values: 0 or 1 (binary)")
+    
+    print(f"\n7. is_weekend (Boolean → Binary - Original Column Modified):")
+    print(f"   - Converted to: True→1, False→0")
+    print(f"   - Unique values: {sorted(df_encoded['is_weekend'].unique())}")
+    
+    print(f"\n8. is_holiday (Boolean → Binary - Original Column Modified):")
+    print(f"   - Converted to: True→1, False→0")
+    print(f"   - Unique values: {sorted(df_encoded['is_holiday'].unique())}")
+    
+    print(f"\n{'=' * 70}")
+    print(f"Original columns: {len(df.columns)}")
+    print(f"Encoded columns: {len(df_encoded.columns)}")
+    print(f"Columns removed: 2 (day_name, stock_industry)")
+    print(f"New columns added: {len(day_dummies.columns) + len(industry_dummies.columns)}")
+    print("=" * 70)
+    
+    # Store the encoders as attributes for potential inverse transformation
     df_encoded.attrs['encoders'] = {
         'stock_ticker': le_stock,
         'transaction_type': le_transaction,
         'customer_account_type': le_account,
-        'stock_sector': le_sector,
-        'stock_industry': le_industry
+        'stock_sector': le_sector
     }
     
     return df_encoded
-
 if __name__ == '__main__':
-    dtp = extract_data('data/daily_trade_prices.csv')
-    trades = extract_data('data/trades.csv')
-    dc = extract_data('data/dim_customer.csv')
-    dd = extract_data('data/dim_date.csv')
-    ds = extract_data('data/dim_stock.csv')
+    # Use correct paths relative to app/src directory
+    dtp = extract_data('../data/daily_trade_prices.csv')
+    trades = extract_data('../data/trades.csv')
+    dc = extract_data('../data/dim_customer.csv')
+    dd = extract_data('../data/dim_date.csv')
+    ds = extract_data('../data/dim_stock.csv')
 
 
     dtp_imputed, trades = impute_missing_data(dtp, trades)
@@ -232,11 +454,81 @@ if __name__ == '__main__':
     
     integrated = integrate_data(dtp_imputed, trades, dc, dd, ds)
 
+    # ===================================================================
+    # 2.1 Streaming Preparation: Split 5% for streaming BEFORE encoding
+    # ===================================================================
+    print("\n" + "="*70)
+    print("STREAMING PREPARATION - Splitting 5% for stream.csv")
+    print("="*70)
+    
+    total_rows = len(integrated)
+    stream_size = int(total_rows * 0.05)
+    
+    print(f"Total rows in integrated dataset: {total_rows}")
+    print(f"Rows to extract for streaming (5%): {stream_size}")
+    
+    # Randomly sample 5% of the data for streaming
+    stream_data = integrated.sample(n=stream_size, random_state=42)
+    
+    # Get the remaining 95% of the data
+    integrated_main = integrated.drop(stream_data.index)
+    
+    print(f"\nDataset split completed:")
+    print(f"- Main dataset (95%): {len(integrated_main)} rows")
+    print(f"- Stream dataset (5%): {len(stream_data)} rows")
+    
+    # Save the streaming data to stream.csv
+    stream_data.to_csv('../data/stream.csv', index=False)
+    print(f"\n✓ Streaming data saved to: ../data/stream.csv")
+    
+    # Verify no overlap between datasets
+    overlap = set(integrated_main.index).intersection(set(stream_data.index))
+    print(f"✓ Verification: Overlap between datasets = {len(overlap)} rows (should be 0)")
+    print("="*70)
+    
+    # Update the integrated dataframe to use only the main dataset (95%)
+    integrated = integrated_main.copy()
+    print(f"\n✓ Updated 'integrated' dataframe to use main dataset: {len(integrated)} rows")
+    print("✓ This 95% dataset will be used for encoding")
 
-    save_to_db(integrated, 'integrated_trades_data')
+    # Try to save to database, but continue if it fails
+    try:
+        save_to_db(integrated, 'integrated_trades_data')
+        print("✓ Data saved to PostgreSQL database")
+    except Exception as e:
+        print(f"⚠ Warning: Could not save to database: {str(e)}")
+        print("⚠ Make sure Docker containers are running: docker compose up -d")
+        print("✓ Continuing without database save...")
+    
     sample=pd.DataFrame(integrated.sample(10))
-    sample.to_csv('data/sample_data.csv', index=False)
+    sample.to_csv('../data/sample_data.csv', index=False)
+    
+    # Save integrated data to integrated_main.csv for Kafka consumer to use
+    integrated.to_csv('../data/integrated_main.csv', index=False)
+    print(f"✓ Saved integrated_main.csv: {len(integrated)} records")
+    
     #spark things before encoding
     encoded = encode_data(integrated)
+    
+    # Consume Kafka stream and get final dataset with streamed data
+    print("\n" + "="*70)
+    print("STARTING KAFKA CONSUMER")
+    print("="*70)
+    print("⚠ Make sure to run the Kafka producer first in a separate terminal:")
+    print("  python kafka_producer.py")
+    print("="*70)
+    
+    final_dataset = consume_kafka_stream(
+        topic_name='55_0654_Topic',
+        bootstrap_servers=['localhost:9092'],
+        main_data_path='../data/integrated_main.csv',
+        output_file='../data/FULL_STOCKS.csv'
+    )
+    
+    print("\n" + "="*70)
+    print("FINAL DATASET SAVED")
+    print("="*70)
+    print(f"✓ FULL_STOCKS.csv created with {len(final_dataset)} total records")
+    print(f"✓ Location: data/FULL_STOCKS.csv")
 
     
