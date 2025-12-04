@@ -10,7 +10,7 @@ from sklearn.preprocessing import LabelEncoder
 
 # Configuration
 KAFKA_BOOTSTRAP_SERVERS = ['localhost:9092']
-TOPIC_NAME = '55_1234_Topic'  # Replace with your actual ID
+TOPIC_NAME = '55_0654_Topic'  # Replace with your actual ID
 FINAL_OUTPUT_FILE = 'notebook/data/FULL_STOCKS.csv'
 MAIN_DATA_PATH = 'notebook/data/integrated_main.csv'
 
