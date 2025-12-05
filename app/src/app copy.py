@@ -190,7 +190,7 @@ def encode_row(row, encoding_lookups):
 
 def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localhost:9092'], 
                          main_data_path='data/integrated_main.csv',
-                         unencoded_data_path='data/integrated_main_unencoded.csv',
+                         lookup_path='data/lookups/master_encoding_lookup.csv',
                          output_file='data/FULL_STOCKS.csv'):
     """
     Consumes Kafka stream data row-by-row, preprocessing each record until EOS is received.
@@ -220,23 +220,42 @@ def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localho
     print("="*70 + "\n")
 
     try:
-        # Load unencoded data to create encoding lookups
-        print("Loading encoding lookups from unencoded main dataset...")
-        unencoded_data = pd.read_csv(unencoded_data_path)
+        # Load encoding lookups from master lookup table
+        print("Loading encoding lookups from master lookup table...")
+        lookup_df = pd.read_csv(lookup_path)
         
         encoding_lookups = {}
         
         # Create lookup dictionaries for label encoding
-        encoding_lookups['stock_ticker'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['stock_ticker'].unique()))}
-        encoding_lookups['transaction_type'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['transaction_type'].unique()))}
-        encoding_lookups['customer_account_type'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['customer_account_type'].unique()))}
-        encoding_lookups['stock_sector'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['stock_sector'].unique()))}
+        # Filter rows where 'Encoded Value' is not NaN (label encoded columns)
+        label_encoded = lookup_df[lookup_df['Encoded Value'].notna()]
+        
+        for col_name in ['stock_ticker', 'transaction_type', 'customer_account_type', 'stock_sector']:
+            col_data = label_encoded[label_encoded['Column Name'] == col_name]
+            encoding_lookups[col_name] = dict(zip(
+                col_data['Original Value'],
+                col_data['Encoded Value'].astype(int)
+            ))
         
         # Create lists for one-hot encoding
-        encoding_lookups['day_names'] = sorted(unencoded_data['day_name'].unique().tolist())
-        encoding_lookups['industry_names'] = sorted(unencoded_data['stock_industry'].unique().tolist())
+        # Filter rows where 'Encoded Column' is not empty (one-hot encoded columns)
+        onehot_encoded = lookup_df[lookup_df['Encoded Column'].notna() & (lookup_df['Encoded Column'] != '')]
         
-        print("✓ Encoding lookups created successfully")
+        # Get unique day names and industry names
+        encoding_lookups['day_names'] = sorted(
+            onehot_encoded[onehot_encoded['Column Name'] == 'day_name']['Original Value'].tolist()
+        )
+        encoding_lookups['industry_names'] = sorted(
+            onehot_encoded[onehot_encoded['Column Name'] == 'stock_industry']['Original Value'].tolist()
+        )
+        
+        print("✓ Encoding lookups loaded from master lookup table successfully")
+        print(f"  - Label encoded: stock_ticker ({len(encoding_lookups['stock_ticker'])}), "
+              f"transaction_type ({len(encoding_lookups['transaction_type'])}), "
+              f"customer_account_type ({len(encoding_lookups['customer_account_type'])}), "
+              f"stock_sector ({len(encoding_lookups['stock_sector'])})")
+        print(f"  - One-hot encoded: day_names ({len(encoding_lookups['day_names'])}), "
+              f"industry_names ({len(encoding_lookups['industry_names'])})")
         
         # Load encoded main data for final combination
         print("Loading encoded main dataset...")
@@ -344,80 +363,32 @@ def encode_data(df):
     # 1. stock_ticker - 20 unique values (STK001-STK020)
     df_encoded['stock_ticker'] = le_stock.fit_transform(df_encoded['stock_ticker'])
     
-    # 2. transaction_type - 2 unique values (buy/sell)
-    df_encoded['transaction_type'] = le_transaction.fit_transform(df_encoded['transaction_type'])
-    
-    # 3. customer_account_type - 3 unique values (premium/standard/basic)
-    df_encoded['customer_account_type'] = le_account.fit_transform(df_encoded['customer_account_type'])
-    
-    # 4. stock_sector - Multiple sectors
+    # 2. stock_sector - Multiple sectors
     df_encoded['stock_sector'] = le_sector.fit_transform(df_encoded['stock_sector'])
     
     # Apply One-Hot Encoding
-    # 5. day_name - One-Hot Encoding (nominal categorical with 7 categories)
+    # 3. day_name - One-Hot Encoding (nominal categorical with 7 categories)
     day_dummies = pd.get_dummies(df_encoded['day_name'], prefix='day', dtype=int)
     df_encoded = pd.concat([df_encoded, day_dummies], axis=1)
     df_encoded.drop('day_name', axis=1, inplace=True)  # Remove original column
     
-    # 6. stock_industry - One-Hot Encoding (multiple industries)
+    # 4. stock_industry - One-Hot Encoding (multiple industries)
     industry_dummies = pd.get_dummies(df_encoded['stock_industry'], prefix='industry', dtype=int)
     df_encoded = pd.concat([df_encoded, industry_dummies], axis=1)
     df_encoded.drop('stock_industry', axis=1, inplace=True)  # Remove original column
     
     # Boolean to Binary - MODIFY ORIGINAL COLUMNS
-    # 7. is_weekend - Convert boolean to binary (True/False → 1/0)
+    # 5. is_weekend - Convert boolean to binary (True/False → 1/0)
     df_encoded['is_weekend'] = df_encoded['is_weekend'].astype(int)
     
-    # 8. is_holiday - Convert boolean to binary (True/False → 1/0)
+    # 6. is_holiday - Convert boolean to binary (True/False → 1/0)
     df_encoded['is_holiday'] = df_encoded['is_holiday'].astype(int)
     
-    # Print encoding information
-    print("=" * 70)
-    print("ENCODING SUMMARY")
-    print("=" * 70)
+    # 7. transaction_type - 2 unique values (buy/sell)
+    df_encoded['transaction_type'] = le_transaction.fit_transform(df_encoded['transaction_type'])
     
-    print(f"\n1. stock_ticker (Label Encoding - Original Column Modified):")
-    print(f"   - Unique values encoded: {len(le_stock.classes_)}")
-    print(f"   - Encoded range: 0-{len(le_stock.classes_)-1}")
-    print(f"   - Sample mapping: {dict(list(zip(le_stock.classes_[:5], range(5))))}")
-    
-    print(f"\n2. transaction_type (Label Encoding - Original Column Modified):")
-    print(f"   - Unique values: {len(le_transaction.classes_)}")
-    print(f"   - Mapping: {dict(zip(le_transaction.classes_, le_transaction.transform(le_transaction.classes_)))}")
-    
-    print(f"\n3. customer_account_type (Label Encoding - Original Column Modified):")
-    print(f"   - Unique values: {len(le_account.classes_)}")
-    print(f"   - Mapping: {dict(zip(le_account.classes_, le_account.transform(le_account.classes_)))}")
-    
-    print(f"\n4. stock_sector (Label Encoding - Original Column Modified):")
-    print(f"   - Unique sectors: {len(le_sector.classes_)}")
-    print(f"   - Sectors: {sorted(le_sector.classes_)}")
-    print(f"   - Encoded range: 0-{len(le_sector.classes_)-1}")
-    
-    print(f"\n5. day_name (One-Hot Encoding - Original column removed):")
-    print(f"   - Unique values: {len(day_dummies.columns)}")
-    print(f"   - New columns created: {list(day_dummies.columns)}")
-    print(f"   - Values: 0 or 1 (binary)")
-    
-    print(f"\n6. stock_industry (One-Hot Encoding - Original column removed):")
-    print(f"   - Unique values: {len(industry_dummies.columns)}")
-    print(f"   - New columns created: {list(industry_dummies.columns)}")
-    print(f"   - Values: 0 or 1 (binary)")
-    
-    print(f"\n7. is_weekend (Boolean → Binary - Original Column Modified):")
-    print(f"   - Converted to: True→1, False→0")
-    print(f"   - Unique values: {sorted(df_encoded['is_weekend'].unique())}")
-    
-    print(f"\n8. is_holiday (Boolean → Binary - Original Column Modified):")
-    print(f"   - Converted to: True→1, False→0")
-    print(f"   - Unique values: {sorted(df_encoded['is_holiday'].unique())}")
-    
-    print(f"\n{'=' * 70}")
-    print(f"Original columns: {len(df.columns)}")
-    print(f"Encoded columns: {len(df_encoded.columns)}")
-    print(f"Columns removed: 2 (day_name, stock_industry)")
-    print(f"New columns added: {len(day_dummies.columns) + len(industry_dummies.columns)}")
-    print("=" * 70)
+    # 8. customer_account_type - 2 unique values (Institutional/Retail)
+    df_encoded['customer_account_type'] = le_account.fit_transform(df_encoded['customer_account_type'])
     
     # Store the encoders as attributes for potential inverse transformation
     df_encoded.attrs['encoders'] = {
@@ -564,10 +535,14 @@ def save_lookup_tables(lookup_tables, save_format='csv'):
             table.to_csv(filename, index=False)
             print(f"Saved: {filename}")
         
-        
-        # Create a combined master lookup for encodings (only label-encoded columns)
-        label_encoded_tables = [v for k, v in lookup_tables.items() 
-                                if k in ['stock_ticker', 'transaction_type', 'customer_account_type', 'stock_sector']]
+        # Collect all encoding lookup tables: label-encoded, one-hot and binary
+        label_keys = ['stock_ticker','stock_sector']
+        onehot_keys = ['day_name', 'stock_industry']
+        binary_keys = ['is_weekend', 'is_holiday', 'transaction_type', 'customer_account_type']
+        selected_keys = label_keys + onehot_keys + binary_keys
+
+        # Keep only keys that exist in lookup_tables
+        label_encoded_tables = [v for k, v in lookup_tables.items() if k in selected_keys]
         if label_encoded_tables:
             master_lookup = pd.concat(label_encoded_tables, ignore_index=True)
             master_lookup.to_csv('data/lookups/master_encoding_lookup.csv', index=False)
@@ -687,7 +662,8 @@ if __name__ == '__main__':
     print("ENCODING MAIN DATASET (95%)")
     print("="*70)
     encoded = encode_data(integrated)
-    create_encoding_lookup_tables(integrated, encoded)
+    lookup = create_encoding_lookup_tables(integrated, encoded)
+    save_lookup_tables(lookup, save_format='csv')
     print(f"✓ Encoded main dataset: {len(encoded)} rows")
     
     # Save encoded main data to integrated_main.csv for Kafka consumer to use
@@ -707,7 +683,7 @@ if __name__ == '__main__':
         topic_name='55_0654_Topic',
         bootstrap_servers=['localhost:9092'],
         main_data_path='../data/integrated_main.csv',
-        unencoded_data_path='../data/integrated_main_unencoded.csv',
+        lookup_path='../data/lookups/master_encoding_lookup.csv',
         output_file='../data/FULL_STOCKS.csv'
     )
     
