@@ -19,7 +19,7 @@ sc.setLogLevel("ERROR")
 print("Spark Session initialized successfully.")
 
 # 1. Read the CSV file using Spark as a Spark DataFrame
-csv_path = "notebook/data/integrated_main.csv"
+csv_path = "app/data/FULL_STOCKS.csv"
 df = spark.read.csv(csv_path, header=True, inferSchema=True)
 
 print(f"\nLoaded CSV file: {csv_path}")
