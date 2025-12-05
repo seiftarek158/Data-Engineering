@@ -33,14 +33,6 @@ day_name,Monday,,day_Monday
 day_name,Thursday,,day_Thursday
 day_name,Tuesday,,day_Tuesday
 day_name,Wednesday,,day_Wednesday
-stock_industry,Asset Management,,industry_Asset Management
-stock_industry,Hardware,,industry_Hardware
-stock_industry,Oil & Gas,,industry_Oil & Gas
-stock_industry,Pharmaceuticals,,industry_Pharmaceuticals
-stock_industry,Renewables,,industry_Renewables
-stock_industry,Retail,,industry_Retail
-stock_industry,Software,,industry_Software
-stock_industry,Utilities,,industry_Utilities
 is_weekend,False,0.0,
 is_weekend,True,1.0,
 is_holiday,False,0.0,

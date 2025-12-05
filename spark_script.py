@@ -4,8 +4,7 @@ import os
 import sys
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as fn
-# Set environment variables before importing Spark
-os.environ["SPARK_LOCAL_IP"] = "127.0.0.1"
+
 
 # Initialize Spark with proper configuration for Windows
 spark = SparkSession.builder \

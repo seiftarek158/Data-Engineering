@@ -28,19 +28,19 @@ stock_sector,Energy,1.0,
 stock_sector,Finance,2.0,
 stock_sector,Healthcare,3.0,
 stock_sector,Technology,4.0,
+stock_industry,Asset Management,0.0,
+stock_industry,Hardware,1.0,
+stock_industry,Oil & Gas,2.0,
+stock_industry,Pharmaceuticals,3.0,
+stock_industry,Renewables,4.0,
+stock_industry,Retail,5.0,
+stock_industry,Software,6.0,
+stock_industry,Utilities,7.0,
 day_name,Friday,,day_Friday
 day_name,Monday,,day_Monday
 day_name,Thursday,,day_Thursday
 day_name,Tuesday,,day_Tuesday
 day_name,Wednesday,,day_Wednesday
-stock_industry,Asset Management,,industry_Asset Management
-stock_industry,Hardware,,industry_Hardware
-stock_industry,Oil & Gas,,industry_Oil & Gas
-stock_industry,Pharmaceuticals,,industry_Pharmaceuticals
-stock_industry,Renewables,,industry_Renewables
-stock_industry,Retail,,industry_Retail
-stock_industry,Software,,industry_Software
-stock_industry,Utilities,,industry_Utilities
 is_weekend,False,0.0,
 is_weekend,True,1.0,
 is_holiday,False,0.0,
