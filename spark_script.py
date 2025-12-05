@@ -37,39 +37,48 @@ print("="*80)
 # Question 1: What is the total trading volume for each stock ticker?
 print("\n1. Total trading volume for each stock ticker:")
 q1_result = df.groupBy("stock_ticker") \
-    .agg(fn.sum("quantity").alias("total_volume")) \
-    .orderBy(fn.desc("total_volume"))
+    .agg(fn.sum("quantity").alias("total_volume")) 
 q1_result.show()
 
 # Question 2: What is the average stock price by sector?
 print("\n2. Average stock price by sector:")
 q2_result = df.groupBy("stock_sector") \
-    .agg(fn.avg("stock_price").alias("avg_stock_price")) \
-    .orderBy(fn.desc("avg_stock_price"))
+    .agg(fn.avg("stock_price").alias("avg_stock_price")) 
 q2_result.show()
 
 # Question 3: How many buy vs sell transactions occurred on weekends?
 print("\n3. Buy vs Sell transactions on weekends:")
 q3_result = df.filter(fn.col("is_weekend") == 1) \
     .groupBy("transaction_type") \
-    .agg(fn.count("transaction_id").alias("transaction_count")) \
-    .orderBy("transaction_type")
+    .agg(fn.count("transaction_id").alias("transaction_count")) 
 q3_result.show()
 
 # Question 4: Which customers have made more than 10 transactions?
 print("\n4. Customers with more than 10 transactions:")
 q4_result = df.groupBy("customer_id") \
     .agg(fn.count("transaction_id").alias("transaction_count")) \
-    .filter(fn.col("transaction_count") > 10) \
-    .orderBy(fn.desc("transaction_count"))
+    .filter(fn.col("transaction_count") > 10) 
 print(f"Total customers with >10 transactions: {q4_result.count()}")
 q4_result.show()
 
 # Question 5: What is the total trade amount per day of the week, ordered from highest to lowest?
 print("\n5. Total trade amount per day of the week (highest to lowest):")
-q5_result = df.groupBy("day_name") \
-    .agg(fn.sum("total_trade_amount").alias("total_trade_amount")) \
-    .orderBy(fn.desc("total_trade_amount"))
+# one-hot encoded day columns
+day_cols = ["day_Monday", "day_Tuesday", "day_Wednesday", "day_Thursday", "day_Friday"]
+
+# compute total trade amount for each day by filtering on the one-hot flag
+sums = []
+for col in day_cols:
+    total = df.filter(fn.col(col) == 1) \
+              .agg(fn.sum("total_trade_amount").alias("total")) \
+              .collect()[0]["total"]
+    total = float(total) if total is not None else 0.0
+    sums.append((col.replace("day_", ""), total))
+
+# create a Spark DataFrame and order by total_trade_amount desc
+q5_result = spark.createDataFrame(sums, ["day", "total_trade_amount"]) \
+                 .orderBy(fn.desc("total_trade_amount"))
+
 q5_result.show()
 
 print("\n" + "="*80)
@@ -98,12 +107,14 @@ sql1_result.show()
 # SQL Question 2: What is the average trade amount by customer account type?
 print("\nSQL 2. Average trade amount by customer account type:")
 sql2_result = spark.sql("""
-    SELECT customer_account_type,
-           AVG(total_trade_amount) as avg_trade_amount,
-           COUNT(*) as transaction_count
+    SELECT 
+        CASE customer_account_type
+            WHEN 0 THEN 'Institutional'
+            ELSE 'Retail'
+        END as account_type,
+        AVG(total_trade_amount) as avg_trade_amount
     FROM trades
     GROUP BY customer_account_type
-    ORDER BY avg_trade_amount DESC
 """)
 sql2_result.show()
 
@@ -118,7 +129,6 @@ sql3_result = spark.sql("""
         COUNT(transaction_id) as transaction_count
     FROM trades
     GROUP BY is_holiday
-    ORDER BY is_holiday DESC
 """)
 sql3_result.show()
 
@@ -126,8 +136,7 @@ sql3_result.show()
 print("\nSQL 4. Stock sectors with highest total trading volume on weekends:")
 sql4_result = spark.sql("""
     SELECT stock_sector,
-           SUM(quantity) as total_volume,
-           COUNT(transaction_id) as transaction_count
+           SUM(quantity) as total_volume
     FROM trades
     WHERE is_weekend = 1
     GROUP BY stock_sector
@@ -139,12 +148,13 @@ sql4_result.show()
 print("\nSQL 5. Total buy vs sell amount for each stock liquidity tier:")
 sql5_result = spark.sql("""
     SELECT stock_liquidity_tier,
-           transaction_type,
-           SUM(total_trade_amount) as total_amount,
-           COUNT(transaction_id) as transaction_count
+           CASE transaction_type
+               WHEN 0 THEN 'BUY'
+                ELSE  'SELL'
+           END as transaction_type,
+           SUM(total_trade_amount) as total_amount
     FROM trades
     GROUP BY stock_liquidity_tier, transaction_type
-    ORDER BY stock_liquidity_tier, transaction_type
 """)
 sql5_result.show()
 
