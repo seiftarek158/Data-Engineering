@@ -189,7 +189,8 @@ def encode_row(row, encoding_lookups):
     return encoded_row
 
 def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localhost:9092'], 
-                         main_data_path='data/integrated_main.csv', 
+                         main_data_path='data/integrated_main.csv',
+                         unencoded_data_path='data/integrated_main_unencoded.csv',
                          output_file='data/FULL_STOCKS.csv'):
     """
     Consumes Kafka stream data row-by-row, preprocessing each record until EOS is received.
@@ -201,7 +202,9 @@ def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localho
     bootstrap_servers : list
         List of Kafka bootstrap servers
     main_data_path : str
-        Path to the main dataset for fitting encoders
+        Path to the encoded main dataset for final combination
+    unencoded_data_path : str
+        Path to the unencoded main dataset for creating encoding lookups
     output_file : str
         Path to save the final combined dataset
     
@@ -217,23 +220,27 @@ def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localho
     print("="*70 + "\n")
 
     try:
-        # Load main dataset and create encoding lookups
-        print("Loading encoding lookups from main dataset...")
-        main_data = pd.read_csv(main_data_path)
+        # Load unencoded data to create encoding lookups
+        print("Loading encoding lookups from unencoded main dataset...")
+        unencoded_data = pd.read_csv(unencoded_data_path)
         
         encoding_lookups = {}
         
         # Create lookup dictionaries for label encoding
-        encoding_lookups['stock_ticker'] = {val: idx for idx, val in enumerate(sorted(main_data['stock_ticker'].unique()))}
-        encoding_lookups['transaction_type'] = {val: idx for idx, val in enumerate(sorted(main_data['transaction_type'].unique()))}
-        encoding_lookups['customer_account_type'] = {val: idx for idx, val in enumerate(sorted(main_data['customer_account_type'].unique()))}
-        encoding_lookups['stock_sector'] = {val: idx for idx, val in enumerate(sorted(main_data['stock_sector'].unique()))}
+        encoding_lookups['stock_ticker'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['stock_ticker'].unique()))}
+        encoding_lookups['transaction_type'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['transaction_type'].unique()))}
+        encoding_lookups['customer_account_type'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['customer_account_type'].unique()))}
+        encoding_lookups['stock_sector'] = {val: idx for idx, val in enumerate(sorted(unencoded_data['stock_sector'].unique()))}
         
         # Create lists for one-hot encoding
-        encoding_lookups['day_names'] = sorted(main_data['day_name'].unique().tolist())
-        encoding_lookups['industry_names'] = sorted(main_data['stock_industry'].unique().tolist())
+        encoding_lookups['day_names'] = sorted(unencoded_data['day_name'].unique().tolist())
+        encoding_lookups['industry_names'] = sorted(unencoded_data['stock_industry'].unique().tolist())
         
         print("✓ Encoding lookups created successfully")
+        
+        # Load encoded main data for final combination
+        print("Loading encoded main dataset...")
+        main_data = pd.read_csv(main_data_path)
         print(f"Main dataset: {len(main_data)} records")
 
         # Create consumer
@@ -279,6 +286,11 @@ def consume_kafka_stream(topic_name='55_0654_Topic', bootstrap_servers=['localho
             
             full_dataset = pd.concat([main_data, streamed_df], ignore_index=True)
             print(f"✓ Combined dataset: {len(full_dataset)} total records")
+            
+            # Sort by transaction_id before saving
+            print("\n✓ Sorting dataset by transaction_id...")
+            full_dataset = full_dataset.sort_values(by='transaction_id').reset_index(drop=True)
+            print(f"✓ Dataset sorted successfully")
             
             full_dataset.to_csv(output_file, index=False)
             print(f"✓ Saved to {output_file}")
@@ -503,12 +515,23 @@ if __name__ == '__main__':
     sample=pd.DataFrame(integrated.sample(10))
     sample.to_csv('../data/sample_data.csv', index=False)
     
-    # Save integrated data to integrated_main.csv for Kafka consumer to use
-    integrated.to_csv('../data/integrated_main.csv', index=False)
-    print(f"✓ Saved integrated_main.csv: {len(integrated)} records")
+    # Save unencoded main data for encoding lookup creation in Kafka consumer
+    integrated.to_csv('../data/integrated_main_unencoded.csv', index=False)
+    print(f"✓ Saved unencoded data for lookups: integrated_main_unencoded.csv")
     
-    #spark things before encoding
+    # ===================================================================
+    # 2.2 Encode the 95% main dataset
+    # ===================================================================
+    print("\n" + "="*70)
+    print("ENCODING MAIN DATASET (95%)")
+    print("="*70)
     encoded = encode_data(integrated)
+    print(f"✓ Encoded main dataset: {len(encoded)} rows")
+    
+    # Save encoded main data to integrated_main.csv for Kafka consumer to use
+    encoded.to_csv('../data/integrated_main.csv', index=False)
+    print(f"✓ Saved encoded integrated_main.csv: {len(encoded)} records")
+    print("="*70)
     
     # Consume Kafka stream and get final dataset with streamed data
     print("\n" + "="*70)
@@ -522,6 +545,7 @@ if __name__ == '__main__':
         topic_name='55_0654_Topic',
         bootstrap_servers=['localhost:9092'],
         main_data_path='../data/integrated_main.csv',
+        unencoded_data_path='../data/integrated_main_unencoded.csv',
         output_file='../data/FULL_STOCKS.csv'
     )
     
