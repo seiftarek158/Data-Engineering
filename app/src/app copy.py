@@ -428,6 +428,167 @@ def encode_data(df):
     }
     
     return df_encoded
+def create_encoding_lookup_tables(df_original, df_encoded):
+    """
+    Creates lookup tables for all encoded columns showing the mapping
+    between original and encoded values.
+    
+    Since label encoding now modifies original columns, we use the encoders
+    stored in df_encoded.attrs['encoders'] to retrieve the mappings.
+    
+    Parameters:
+    -----------
+    df_original : pandas.DataFrame
+        The original dataframe before encoding
+    df_encoded : pandas.DataFrame
+        The encoded dataframe with encoded columns
+    
+    Returns:
+    --------
+    dict
+        Dictionary of lookup tables for each encoded column
+    """
+    lookup_tables = {}
+    
+    # Get the encoders from the encoded dataframe attributes
+    encoders = df_encoded.attrs.get('encoders', {})
+    
+    # 1. Stock Ticker Lookup (Label Encoding)
+    if 'stock_ticker' in encoders:
+        le_stock = encoders['stock_ticker']
+        stock_lookup = pd.DataFrame({
+            'Column Name': 'stock_ticker',
+            'Original Value': le_stock.classes_,
+            'Encoded Value': le_stock.transform(le_stock.classes_)
+        })
+        lookup_tables['stock_ticker'] = stock_lookup.sort_values('Encoded Value')
+    
+    # 2. Transaction Type Lookup (Label Encoding)
+    if 'transaction_type' in encoders:
+        le_trans = encoders['transaction_type']
+        trans_lookup = pd.DataFrame({
+            'Column Name': 'transaction_type',
+            'Original Value': le_trans.classes_,
+            'Encoded Value': le_trans.transform(le_trans.classes_)
+        })
+        lookup_tables['transaction_type'] = trans_lookup.sort_values('Encoded Value')
+    
+    # 3. Customer Account Type Lookup (Label Encoding)
+    if 'customer_account_type' in encoders:
+        le_account = encoders['customer_account_type']
+        account_lookup = pd.DataFrame({
+            'Column Name': 'customer_account_type',
+            'Original Value': le_account.classes_,
+            'Encoded Value': le_account.transform(le_account.classes_)
+        })
+        lookup_tables['customer_account_type'] = account_lookup.sort_values('Encoded Value')
+    
+    # 4. Stock Sector Lookup (Label Encoding)
+    if 'stock_sector' in encoders:
+        le_sector = encoders['stock_sector']
+        sector_lookup = pd.DataFrame({
+            'Column Name': 'stock_sector',
+            'Original Value': le_sector.classes_,
+            'Encoded Value': le_sector.transform(le_sector.classes_)
+        })
+        lookup_tables['stock_sector'] = sector_lookup.sort_values('Encoded Value')
+    
+    # 5. Day Name Lookup (One-Hot Encoding)
+    day_cols = [col for col in df_encoded.columns if col.startswith('day_')]
+    day_lookup_data = []
+    for day_col in sorted(day_cols):
+        day_name = day_col.replace('day_', '')
+        day_lookup_data.append({
+            'Column Name': 'day_name',
+            'Original Value': day_name,
+            'Encoded Column': day_col
+        })
+    if day_lookup_data:
+        day_lookup = pd.DataFrame(day_lookup_data)
+        lookup_tables['day_name'] = day_lookup
+    
+    # 6. Stock Industry Lookup (One-Hot Encoding)
+    industry_cols = [col for col in df_encoded.columns if col.startswith('industry_')]
+    industry_lookup_data = []
+    for ind_col in sorted(industry_cols):
+        industry_name = ind_col.replace('industry_', '')
+        industry_lookup_data.append({
+            'Column Name': 'stock_industry',
+            'Original Value': industry_name,
+            'Encoded Column': ind_col
+        })
+    if industry_lookup_data:
+        industry_lookup = pd.DataFrame(industry_lookup_data)
+        lookup_tables['stock_industry'] = industry_lookup
+    
+    # 7. Is Weekend Lookup (Boolean to Binary)
+    weekend_lookup = pd.DataFrame({
+        'Column Name': ['is_weekend', 'is_weekend'],
+        'Original Value': [False, True],
+        'Encoded Value': [0, 1]
+    })
+    lookup_tables['is_weekend'] = weekend_lookup
+    
+    # 8. Is Holiday Lookup (Boolean to Binary)
+    holiday_lookup = pd.DataFrame({
+        'Column Name': ['is_holiday', 'is_holiday'],
+        'Original Value': [False, True],
+        'Encoded Value': [0, 1]
+    })
+    lookup_tables['is_holiday'] = holiday_lookup
+    
+    return lookup_tables
+
+def save_lookup_tables(lookup_tables, save_format='csv'):
+    """
+    Saves all lookup tables to files or database.
+    
+    Parameters:
+    -----------
+    lookup_tables : dict
+        Dictionary of encoding lookup tables
+    imputation_lookup : pandas.DataFrame
+        Imputation lookup table
+    save_format : str
+        'csv' or 'db' for database
+    """
+    import os
+    
+    # Create lookups directory if it doesn't exist
+    os.makedirs('data/lookups', exist_ok=True)
+    
+    if save_format == 'csv':
+        # Save encoding lookup tables
+        for name, table in lookup_tables.items():
+            filename = f'data/lookups/encoding_lookup_{name}.csv'
+            table.to_csv(filename, index=False)
+            print(f"Saved: {filename}")
+        
+        
+        # Create a combined master lookup for encodings (only label-encoded columns)
+        label_encoded_tables = [v for k, v in lookup_tables.items() 
+                                if k in ['stock_ticker', 'transaction_type', 'customer_account_type', 'stock_sector']]
+        if label_encoded_tables:
+            master_lookup = pd.concat(label_encoded_tables, ignore_index=True)
+            master_lookup.to_csv('data/lookups/master_encoding_lookup.csv', index=False)
+            print(f"Saved: data/lookups/master_encoding_lookup.csv")
+        
+    elif save_format == 'db':
+        from db_utils import save_to_db
+        
+        # Save each lookup table to database
+        for name, table in lookup_tables.items():
+            save_to_db(table, f'lookup_encoding_{name}')
+            print(f"Saved to DB: lookup_encoding_{name}")
+        
+        # Save master lookup (only label-encoded columns)
+        label_encoded_tables = [v for k, v in lookup_tables.items() 
+                                if k in ['stock_ticker', 'transaction_type', 'customer_account_type', 'stock_sector']]
+        if label_encoded_tables:
+            master_lookup = pd.concat(label_encoded_tables, ignore_index=True)
+            save_to_db(master_lookup, 'lookup_master_encoding')
+            print(f"Saved to DB: lookup_master_encoding")
+
 if __name__ == '__main__':
     # Use correct paths relative to app/src directory
     dtp = extract_data('../data/daily_trade_prices.csv')
@@ -526,6 +687,7 @@ if __name__ == '__main__':
     print("ENCODING MAIN DATASET (95%)")
     print("="*70)
     encoded = encode_data(integrated)
+    create_encoding_lookup_tables(integrated, encoded)
     print(f"✓ Encoded main dataset: {len(encoded)} rows")
     
     # Save encoded main data to integrated_main.csv for Kafka consumer to use

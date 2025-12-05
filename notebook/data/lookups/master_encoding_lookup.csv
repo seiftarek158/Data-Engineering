@@ -23,24 +23,8 @@ transaction_type,BUY,0
 transaction_type,SELL,1
 customer_account_type,Institutional,0
 customer_account_type,Retail,1
-day_name,Friday,day_Friday
-day_name,Monday,day_Monday
-day_name,Thursday,day_Thursday
-day_name,Tuesday,day_Tuesday
-day_name,Wednesday,day_Wednesday
-is_weekend,False,0
-is_holiday,False,0
-is_holiday,True,1
 stock_sector,Consumer,0
 stock_sector,Energy,1
 stock_sector,Finance,2
 stock_sector,Healthcare,3
 stock_sector,Technology,4
-stock_industry,Asset Management,0
-stock_industry,Hardware,1
-stock_industry,Oil & Gas,2
-stock_industry,Pharmaceuticals,3
-stock_industry,Renewables,4
-stock_industry,Retail,5
-stock_industry,Software,6
-stock_industry,Utilities,7
