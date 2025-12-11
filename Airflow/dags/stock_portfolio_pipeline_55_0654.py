@@ -44,12 +44,6 @@ default_args = {
 }
 
 # Data paths
-DATA_DIR = '/opt/airflow/data'
-DATASETS_DIR = os.path.join(DATA_DIR, 'datasets')
-OUTPUT_DIR = os.path.join(DATA_DIR, 'processed')
-
-# Ensure output directory exists
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 # ============================================================================
@@ -494,24 +488,10 @@ with DAG(
             task_id='clean_missing_values',
             python_callable=clean_missing_values_task,
             op_kwargs={
-                'dtp_input_path': os.path.join(DATASETS_DIR, 'daily_trade_prices.csv'),
-                'trades_input_path': os.path.join(DATASETS_DIR, 'trades.csv')
+                'dtp_input_path': '/opt/airflow/notebook/data/daily_trade_prices.csv',
+                'trades_input_path': '/opt/airflow/notebook/data/trades.csv'
             },
             provide_context=True,
-            doc_md="""
-            ### Clean Missing Values Task
-            
-            **Purpose**: Handle missing values in daily_trade_prices dataset
-            
-            **Process**:
-            1. Load daily_trade_prices.csv and trades.csv
-            2. Calculate estimated prices from trade data
-            3. Impute missing values using estimated prices
-            4. Apply forward fill for remaining nulls
-            5. Transform to long format
-            
-            **Output**: Cleaned daily_trade_prices saved to processed/dtp_cleaned.csv
-            """,
         )
         
         # Task 2: Detect and Handle Outliers
@@ -519,28 +499,12 @@ with DAG(
             task_id='detect_outliers',
             python_callable=detect_outliers_task,
             op_kwargs={
-                'trades_input_path': os.path.join(DATASETS_DIR, 'trades.csv'),
-                'dtp_input_path': os.path.join(OUTPUT_DIR, 'dtp_cleaned.csv'),
-                'dim_customer_input_path': os.path.join(DATASETS_DIR, 'dim_customer.csv')
+                'trades_input_path':'/opt/airflow/notebook/data/trades.csv',
+                'dtp_input_path': '/opt/airflow/notebook/data/dtp_cleaned.csv',
+                'dim_customer_input_path': '/opt/airflow/notebook/data/dim_customer.csv'
             },
             provide_context=True,
-            doc_md="""
-            ### Detect and Handle Outliers Task
             
-            **Purpose**: Identify and handle outliers in trades dataset (>10% threshold)
-            
-            **Methods**:
-            - IQR (Interquartile Range) method
-            - Z-score method
-            
-            **Transformations**:
-            - Log transformation (if IQR outliers > 10%)
-            - Winsorization (if Z-score outliers > 10%)
-            
-            **Columns Analyzed**: quantity, average_trade_size, cumulative_portfolio_value
-            
-            **Output**: Outlier-handled trades saved to processed/trades_outliers_handled.csv
-            """,
         )
         
         # Task 3: Integrate Datasets
@@ -548,29 +512,13 @@ with DAG(
             task_id='integrate_datasets',
             python_callable=integrate_datasets_task,
             op_kwargs={
-                'trades_input_path': os.path.join(OUTPUT_DIR, 'trades_outliers_handled.csv'),
-                'dim_customer_input_path': os.path.join(OUTPUT_DIR, 'dim_customer_outlier_handled.csv'),
-                'dim_date_input_path': os.path.join(DATASETS_DIR, 'dim_date.csv'),
-                'dim_stock_input_path': os.path.join(DATASETS_DIR, 'dim_stock.csv'),
-                'dtp_input_path': os.path.join(OUTPUT_DIR, 'dtp_cleaned_outlier_handled.csv')
+                'trades_input_path':  '/opt/airflow/notebook/data/trades_outliers_handled.csv',
+                'dim_customer_input_path': '/opt/airflow/notebook/data/dim_customer_outlier_handled.csv',
+                'dim_date_input_path': '/opt/airflow/notebook/data/dim_date.csv',
+                'dim_stock_input_path': '/opt/airflow/notebook/data/dim_stock.csv',
+                'dtp_input_path': '/opt/airflow/notebook/data/dtp_cleaned_outlier_handled.csv'
             },
-            provide_context=True,
-            doc_md="""
-            ### Integrate Datasets Task
-            
-            **Purpose**: Merge all datasets starting from trades.csv
-            
-            **Merge Sequence**:
-            1. trades ← dim_customer (on customer_id)
-            2. result ← dim_stock (on stock_ticker)
-            3. result ← dim_date (on date)
-            4. result ← daily_trade_prices (on date, stock_ticker)
-            
-            **Calculations**:
-            - total_trade_amount = stock_price × quantity
-            
-            **Output**: Integrated dataset saved to processed/integrated_data.csv
-            """,
+            provide_context=True
         )
         
         # Task 4: Load to PostgreSQL
@@ -578,23 +526,10 @@ with DAG(
             task_id='load_to_postgres',
             python_callable=load_to_postgres_task,
             op_kwargs={
-                'input_path': os.path.join(OUTPUT_DIR, 'integrated_data.csv'),
+                'input_path': '/opt/airflow/notebook/data/integrated_data.csv',
                 'table_name': 'cleaned_trades'
             },
-            provide_context=True,
-            doc_md="""
-            ### Load to PostgreSQL Task
-            
-            **Purpose**: Load cleaned and integrated data into PostgreSQL warehouse
-            
-            **Database**: Trades_Database
-            **Table**: cleaned_trades
-            **Connection**: postgresql://postgres:postgres@pgdatabase:5432/Trades_Database
-            
-            **Action**: Replace existing table if exists
-            
-            **Output**: Data successfully loaded into PostgreSQL
-            """,
+            provide_context=True
         )
         
         # Define task dependencies within Stage 1
