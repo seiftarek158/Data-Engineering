@@ -5,6 +5,7 @@ import os
 import warnings
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 from airflow.decorators import dag, task
 
@@ -68,9 +69,7 @@ def stage_2_data_processing_dag():
                         [(date, col) for date in dates_for_mapping],
                         names=["date_obj", "stock_ticker"],
                     )
-                    dtp.loc[missing_mask, col] = dtp.loc[missing_mask, col].fillna(
-                        map_index.map(stock_prices_map)
-                    )
+                    dtp.loc[missing_mask, col] = map_index.map(stock_prices_map)
 
                 # Forward fill any remaining NaNs
                 dtp[col] = dtp[col].fillna(method="ffill")
@@ -139,7 +138,12 @@ def stage_2_data_processing_dag():
             encoded_df[col] = batch_df[col].map(encoding_map)
 
             # Create and save individual lookup table
-            lookup_map = {i: category for category, i in encoding_map.items()}
+            lookup_map = {}
+            for category, i in encoding_map.items():
+                if isinstance(category, np.bool_):
+                    lookup_map[i] = bool(category)
+                else:
+                    lookup_map[i] = category
             master_encoding_lookup[col] = lookup_map
             lookup_df = pd.DataFrame(
                 list(lookup_map.items()), columns=["encoded_value", "original_value"]

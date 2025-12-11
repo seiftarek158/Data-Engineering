@@ -1,3 +1,5 @@
 /venv
 app/volumes/*
 Airflow/logs/*
+Airflow/app/volumes/data_postgres/*
+notebook/data/lookups/*
