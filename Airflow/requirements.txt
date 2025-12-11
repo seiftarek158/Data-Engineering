@@ -1,1 +1,13 @@
 scikit-learn
+apache-airflow
+pandas
+numpy
+psycopg2-binary
+sqlalchemy
+kafka-python-ng
+pyspark<= 3.5.7
+langchain
+langchain-community
+openai # or google-generativeai, or langchain-ollama
+streamlit # or dash, plotly
+python-dotenv
