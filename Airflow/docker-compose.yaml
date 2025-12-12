@@ -97,6 +97,22 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: pgdatabase
 
+  # Streamlit Dashboard (New Service)
+  streamlit-dashboard:
+    build: ./dashboard
+    container_name: streamlit_dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - pgdatabase
+    environment:
+      - DB_HOST=pgdatabase
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=Trades_Database
+    restart: on-failure
+
   jupyter:
     image: quay.io/jupyter/pyspark-notebook:2024-10-14
     command: start-notebook.sh --NotebookApp.token=''
@@ -170,7 +186,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CREATE_TOPICS: "55_0654_Topic"
     depends_on:
