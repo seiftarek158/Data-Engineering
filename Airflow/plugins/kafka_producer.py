@@ -10,9 +10,9 @@ import time
 from kafka import KafkaProducer
 
 # Configuration
-KAFKA_BOOTSTRAP_SERVERS = ['localhost:9092']
+KAFKA_BOOTSTRAP_SERVERS = ['kafka:9092']
 TOPIC_NAME = '55_0654_Topic'  # Replace with your actual ID
-STREAM_FILE = 'app/data/stream.csv'
+STREAM_FILE = '/opt/airflow/notebook/data/stream.csv'
 SLEEP_TIME = 0.3  # 300 milliseconds
 
 if __name__ == "__main__":
@@ -71,4 +71,4 @@ if __name__ == "__main__":
         print("Make sure the file exists before running the producer.")
     except Exception as e:
         print(f"\n✗ Error occurred: {str(e)}")
-        print("Make sure Kafka is running on localhost:9092")
+        print("Make sure Kafka is running and accessible at kafka:9092")
