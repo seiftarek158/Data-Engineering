@@ -11,14 +11,9 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
-from pyspark.sql import SparkSession
-from pyspark.sql import functions as fn
-from sqlalchemy import create_engine
 import os
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Heavy imports (PySpark, SQLAlchemy) moved inside functions to speed up DAG parsing
 
 # Default arguments for the DAG
 default_args = {
@@ -42,12 +37,15 @@ def initialize_spark_session(**context):
     Creates a Spark session connected to the Spark master node with
     the team-specific application name.
     """
+    # Import PySpark inside function to avoid slow DAG parsing
+    from pyspark.sql import SparkSession
+    
     print("="*70)
     print("INITIALIZING SPARK SESSION")
     print("="*70)
     
-    # Load Spark configuration from environment
-    spark_master = os.getenv('SPARK_MASTER', 'spark://spark-master:7077')
+    # Load Spark configuration
+    spark_master = 'spark://spark-master:7077'
     spark_app_name = 'M3_SPARK_APP_55_0654'
     
     print(f"\nSpark Configuration:")
@@ -90,14 +88,21 @@ def run_spark_analytics(input_path, **context):
     4. Executes all 5 Spark SQL queries from Milestone 2
     5. Saves each result to PostgreSQL analytics tables
     """
+    # Import heavy libraries inside function to avoid slow DAG parsing
+    from pyspark.sql import SparkSession
+    from pyspark.sql import functions as fn
+    from sqlalchemy import create_engine
+    
     print("="*70)
     print("RUNNING SPARK ANALYTICS")
     print("="*70)
     
-    # Load Spark configuration from environment
-    spark_master = os.getenv('SPARK_MASTER', 'spark://spark-master:7077')
+    # Spark configuration
+    spark_master = 'spark://spark-master:7077'
     spark_app_name = 'M3_SPARK_APP_55_0654'
     
+    from dotenv import load_dotenv
+    load_dotenv()
     # Load database configuration from environment
     db_host = os.getenv('DB_HOST', 'pgdatabase')
     db_user = os.getenv('DB_USER', 'postgres')
