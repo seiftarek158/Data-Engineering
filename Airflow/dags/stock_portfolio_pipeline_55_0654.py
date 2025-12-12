@@ -17,21 +17,11 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.utils.task_group import TaskGroup
-import pandas as pd
-import numpy as np
-from scipy.stats import mstats
-from sqlalchemy import create_engine
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-import sys
 import os
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
-# Add app/src to Python path to import custom modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app', 'src'))
+# Load environment variables only when needed
+# Removed heavy imports from top-level (pandas, numpy, scipy, sqlalchemy, psycopg2)
+# These will be imported inside functions to speed up DAG parsing
 
 # Default arguments for the DAG
 default_args = {
@@ -60,6 +50,9 @@ def clean_missing_values_task(dtp_input_path, trades_input_path, **context):
     3. Applies forward fill for remaining nulls
     4. Saves cleaned data to XCom for downstream tasks
     """
+    # Import heavy libraries inside function
+    import pandas as pd
+    
     print("="*70)
     print("TASK 1: CLEANING MISSING VALUES")
     print("="*70)
@@ -131,7 +124,7 @@ def clean_missing_values_task(dtp_input_path, trades_input_path, **context):
     print(f"Cleaned data shape: {dtp_cleaned.shape}")
     
     # Save to temporary file for next task
-    output_path = os.path.join(OUTPUT_DIR, 'dtp_cleaned.csv')
+    output_path = '/opt/airflow/notebook/data/dtp_cleaned.csv'
     dtp_cleaned.to_csv(output_path, index=False)
     print(f"Saved cleaned daily_trade_prices to: {output_path}")
     
@@ -153,6 +146,11 @@ def detect_outliers_task(trades_input_path, dtp_input_path, dim_customer_input_p
     4. Only transforms columns with >10% outliers
     5. Saves processed data for integration
     """
+    # Import heavy libraries inside function
+    import pandas as pd
+    import numpy as np
+    from scipy.stats import mstats
+    
     print("="*70)
     print("TASK 2: DETECTING AND HANDLING OUTLIERS")
     print("="*70)
@@ -199,7 +197,7 @@ def detect_outliers_task(trades_input_path, dtp_input_path, dim_customer_input_p
             print(f"  ✓ No transformation needed (outliers < 10%)")
     
     # Save processed data
-    trades_output_path = os.path.join(OUTPUT_DIR, 'trades_outliers_handled.csv')
+    trades_output_path = '/opt/airflow/notebook/data/trades_outliers_handled.csv'
     trades_copy.to_csv(trades_output_path, index=False)
     print(f"\nSaved outlier-handled trades to: {trades_output_path}")
     
@@ -213,6 +211,10 @@ def detect_outliers_task(trades_input_path, dtp_input_path, dim_customer_input_p
     num_of_outlier_columns = 0
     for col in cols:
         series = dtp_imputed.loc[dtp_imputed['stock_ticker'] == col, 'stock_price']
+        n_stock = len(series)  # Use the actual length of this stock's data
+        
+        if n_stock == 0:
+            continue
         
         q1 = series.quantile(0.25)
         q3 = series.quantile(0.75)
@@ -220,10 +222,12 @@ def detect_outliers_task(trades_input_path, dtp_input_path, dim_customer_input_p
         lower = q1 - 1.5 * iqr
         upper = q3 + 1.5 * iqr
         iqr_outliers_mask = (series < lower) | (series > upper)
-        iqr_pct = (iqr_outliers_mask.sum() / n) * 100
-        
+        iqr_pct = (iqr_outliers_mask.sum() / n_stock) * 100  # Use n_stock, not n
+        print(f"\nAnalyzing dtp column: {col}")
+        print(f"  IQR outliers: {iqr_pct:.2f}%")
         if iqr_pct > 10:
             num_of_outlier_columns += 1
+    print(f"\nTotal stock columns with >10% outliers: {num_of_outlier_columns} out of {len(cols)}")
     if(num_of_outlier_columns > 0):
         
         if dtp_imputed['stock_price'].min() <= 0:
@@ -231,7 +235,7 @@ def detect_outliers_task(trades_input_path, dtp_input_path, dim_customer_input_p
         else:
             dtp_imputed['stock_price' + '_log'] = np.log(dtp_imputed['stock_price'])
     
-    dtp_output_path = os.path.join(OUTPUT_DIR, 'dtp_cleaned_outlier_handled.csv')
+    dtp_output_path = '/opt/airflow/notebook/data/dtp_cleaned_outlier_handled.csv'
     dtp_imputed.to_csv(dtp_output_path, index=False)
     print(f"\nSaved outlier-handled daily_trade_prices to: {dtp_output_path}")
 
@@ -249,7 +253,7 @@ def detect_outliers_task(trades_input_path, dtp_input_path, dim_customer_input_p
         print(f"  → Applying winsorization (Z-score: {z_pct:.2f}% > 10%)")
         dc['avg_trade_size_baseline_winsorized'] = mstats.winsorize(dc['avg_trade_size_baseline'], limits=[0.15, 0.15])
 
-    dim_customer_output_path = os.path.join(OUTPUT_DIR, 'dim_customer_outlier_handled.csv')
+    dim_customer_output_path = '/opt/airflow/notebook/data/dim_customer_outlier_handled.csv'
     dc.to_csv(dim_customer_output_path, index=False)
     print(f"\nSaved outlier-handled dim_customer to: {dim_customer_output_path}")
 
@@ -272,6 +276,9 @@ def integrate_datasets_task(trades_input_path, dim_customer_input_path, dim_date
     4. Selects and renames required columns
     5. Saves integrated dataset for loading
     """
+    # Import heavy libraries inside function
+    import pandas as pd
+    
     print("="*70)
     print("TASK 3: INTEGRATING DATASETS")
     print("="*70)
@@ -357,7 +364,7 @@ def integrate_datasets_task(trades_input_path, dim_customer_input_path, dim_date
     print(f"Columns: {list(integrated.columns)}")
     
     # Save integrated data
-    output_path = os.path.join(OUTPUT_DIR, 'integrated_data.csv')
+    output_path = '/opt/airflow/notebook/data/integrated_data.csv'
     integrated.to_csv(output_path, index=False)
     print(f"Saved integrated data to: {output_path}")
     
@@ -378,16 +385,26 @@ def load_to_postgres_task(input_path, table_name, **context):
     3. Loads data into PostgreSQL table 'cleaned_trades'
     4. Verifies successful load
     """
+    # Import heavy libraries inside function
+    import pandas as pd
+    from sqlalchemy import create_engine
+    import psycopg2
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+    from dotenv import load_dotenv
+    import os
+    
+    load_dotenv()
+    
     print("="*70)
     print("TASK 4: LOADING TO POSTGRESQL")
     print("="*70)
     
     # Get database credentials from environment variables
-    DB_HOST = os.getenv('DB_HOST', 'pgdatabase')
-    DB_USER = os.getenv('DB_USER', 'postgres')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
-    DB_PORT = os.getenv('DB_PORT', '5432')
-    DB_NAME = os.getenv('DB_NAME', 'Trades_Database')
+    DB_HOST = os.getenv('DB_HOST')
+    DB_USER = os.getenv('DB_USER')
+    DB_PASSWORD = os.getenv('DB_PASSWORD')
+    DB_PORT = os.getenv('DB_PORT')
+    DB_NAME = os.getenv('DB_NAME')
     
     print(f"Database Configuration:")
     print(f"  Host: {DB_HOST}")
