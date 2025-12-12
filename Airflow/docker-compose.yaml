@@ -97,22 +97,6 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: pgdatabase
 
-  # Streamlit Dashboard (New Service)
-  streamlit-dashboard:
-    build: ./dashboard
-    container_name: streamlit_dashboard
-    ports:
-      - "8501:8501"
-    depends_on:
-      - pgdatabase
-    environment:
-      - DB_HOST=pgdatabase
-      - DB_PORT=5432
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=Trades_Database
-    restart: on-failure
-
   jupyter:
     image: quay.io/jupyter/pyspark-notebook:2024-10-14
     command: start-notebook.sh --NotebookApp.token=''
