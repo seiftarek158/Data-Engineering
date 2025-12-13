@@ -1199,49 +1199,49 @@ def prepare_visualization(**context):
             'table_name': 'viz_volume_by_ticker',
             'source': 'spark_analytics_1',
             'description': 'Decoded stock ticker trading volumes from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_volume_by_ticker', con=engine).iloc[0]['cnt']) if 'viz_volume_by_ticker' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_volume_by_ticker', con=engine).iloc[0]['cnt']) if 'viz_volume_by_ticker' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
             'table_name': 'viz_avg_price_by_sector',
             'source': 'spark_analytics_2',
             'description': 'Decoded sector average stock prices from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_avg_price_by_sector', con=engine).iloc[0]['cnt']) if 'viz_avg_price_by_sector' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_avg_price_by_sector', con=engine).iloc[0]['cnt']) if 'viz_avg_price_by_sector' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
             'table_name': 'viz_weekend_transactions',
             'source': 'spark_analytics_3',
             'description': 'Weekend transaction type analysis from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_weekend_transactions', con=engine).iloc[0]['cnt']) if 'viz_weekend_transactions' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_weekend_transactions', con=engine).iloc[0]['cnt']) if 'viz_weekend_transactions' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
             'table_name': 'viz_active_customers',
             'source': 'spark_analytics_4',
             'description': 'Active customers with >10 transactions from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_active_customers', con=engine).iloc[0]['cnt']) if 'viz_active_customers' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_active_customers', con=engine).iloc[0]['cnt']) if 'viz_active_customers' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
             'table_name': 'viz_trade_by_day',
             'source': 'spark_analytics_5',
             'description': 'Trading activity by day of week from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_trade_by_day', con=engine).iloc[0]['cnt']) if 'viz_trade_by_day' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_trade_by_day', con=engine).iloc[0]['cnt']) if 'viz_trade_by_day' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
             'table_name': 'viz_holiday_comparison',
             'source': 'spark_sql_3',
             'description': 'Holiday vs non-holiday trading comparison from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_holiday_comparison', con=engine).iloc[0]['cnt']) if 'viz_holiday_comparison' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_holiday_comparison', con=engine).iloc[0]['cnt']) if 'viz_holiday_comparison' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
             'table_name': 'viz_liquidity_by_transaction',
             'source': 'spark_sql_5',
             'description': 'Liquidity tier by transaction type from Stage 4',
-            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_liquidity_by_transaction', con=engine).iloc[0]['cnt']) if 'viz_liquidity_by_transaction' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'row_count': int(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_liquidity_by_transaction', con=engine).iloc[0]['cnt']) if 'viz_liquidity_by_transaction' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
             'created_at': datetime.now()
         },
         {
