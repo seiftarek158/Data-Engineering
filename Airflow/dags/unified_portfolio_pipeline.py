@@ -1142,16 +1142,14 @@ def prepare_visualization(**context):
     }).reset_index()
     sector_time.columns = ['date', 'sector', 'avg_stock_price', 'total_volume']
     sector_time.to_sql('viz_sector_time', con=engine, if_exists='replace', index=False)
-    print(f"  • Created: viz_sector_time ({len(sector_time)} records)")
-
+   
     # View 2: Liquidity over time (for stacked area chart - Stage 4 doesn't have this)
     liquidity_time = df_decoded.groupby(['date', 'liquidity_tier']).agg({
         'quantity': 'sum'
     }).reset_index()
     liquidity_time.columns = ['date', 'liquidity_tier', 'total_volume']
     liquidity_time.to_sql('viz_liquidity_time', con=engine, if_exists='replace', index=False)
-    print(f"  • Created: viz_liquidity_time ({len(liquidity_time)} records)")
-
+   
     # View 3: Top customers by portfolio value (for top 10 chart)
     customer_summary = df_decoded.groupby(['customer_id', 'account_type']).agg({
         'transaction_id': 'count',
@@ -1160,14 +1158,12 @@ def prepare_visualization(**context):
     customer_summary.columns = ['customer_id', 'account_type', 'transaction_count', 'portfolio_value']
     customer_summary = customer_summary.sort_values('portfolio_value', ascending=False)
     customer_summary.to_sql('viz_top_customers', con=engine, if_exists='replace', index=False)
-    print(f"  • Created: viz_top_customers ({len(customer_summary)} records)")
-
+   
     # View 4: Customer transaction distribution (for histogram)
     customer_dist = df_decoded.groupby('customer_id')['transaction_id'].count().reset_index()
     customer_dist.columns = ['customer_id', 'transaction_count']
     customer_dist.to_sql('viz_customer_distribution', con=engine, if_exists='replace', index=False)
-    print(f"  • Created: viz_customer_distribution ({len(customer_dist)} records)")
-
+   
     # View 5: Transaction type summary (for buy/sell charts)
     trans_summary = df_decoded.groupby('transaction_type').agg({
         'transaction_id': 'count',
@@ -1175,7 +1171,6 @@ def prepare_visualization(**context):
     }).reset_index()
     trans_summary.columns = ['transaction_type', 'transaction_count', 'total_volume']
     trans_summary.to_sql('viz_transaction_summary', con=engine, if_exists='replace', index=False)
-    print(f"  • Created: viz_transaction_summary ({len(trans_summary)} records)")
 
     # View 6: Sector comparison metrics (for sector dashboard grid)
     sector_comparison = df_decoded.groupby('sector').agg({
@@ -1187,8 +1182,6 @@ def prepare_visualization(**context):
     sector_comparison.columns = ['sector', 'transaction_count', 'total_volume',
                                  'avg_stock_price', 'total_portfolio_value']
     sector_comparison.to_sql('viz_sector_comparison', con=engine, if_exists='replace', index=False)
-    print(f"  • Created: viz_sector_comparison ({len(sector_comparison)} records)")
-
     # ========================================================================
     # Create Visualization Metadata Table
     # ========================================================================
