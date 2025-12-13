@@ -52,10 +52,15 @@ def initialize_spark_session(**context):
     print(f"  Master: {spark_master}")
     print(f"  App Name: {spark_app_name}")
     
-    # Create Spark session
+    # Create Spark session with PostgreSQL JDBC driver
+    # Use shared path accessible by both Airflow and Spark containers
+    jdbc_jar = "/opt/airflow/notebook/data/jars/postgresql-42.7.1.jar"
     spark = SparkSession.builder \
         .appName(spark_app_name) \
         .master(spark_master) \
+        .config("spark.jars", jdbc_jar) \
+        .config("spark.driver.extraClassPath", jdbc_jar) \
+        .config("spark.executor.extraClassPath", jdbc_jar) \
         .getOrCreate()
     
     # Set log level to reduce verbosity
@@ -80,9 +85,9 @@ def initialize_spark_session(**context):
 def run_spark_analytics(input_path, **context):
     """
     Task 2: Run Spark Analytics
-    
+
     This function:
-    1. Connects to existing Spark session
+    1. Creates a new Spark session
     2. Reads FULL_STOCKS.csv into Spark DataFrame
     3. Executes all 5 Spark DataFrame operations from Milestone 2
     4. Executes all 5 Spark SQL queries from Milestone 2
@@ -92,15 +97,15 @@ def run_spark_analytics(input_path, **context):
     from pyspark.sql import SparkSession
     from pyspark.sql import functions as fn
     from sqlalchemy import create_engine
-    
+
     print("="*70)
     print("RUNNING SPARK ANALYTICS")
     print("="*70)
-    
+
     # Spark configuration
     spark_master = 'spark://spark-master:7077'
     spark_app_name = 'M3_SPARK_APP_55_0654'
-    
+
     from dotenv import load_dotenv
     load_dotenv()
     # Load database configuration from environment
@@ -109,16 +114,31 @@ def run_spark_analytics(input_path, **context):
     db_password = os.getenv('DB_PASSWORD', 'postgres')
     db_port = os.getenv('DB_PORT', '5432')
     db_name = os.getenv('DB_NAME', 'Trades_Database')
-    
-    # Connect to Spark session
-    print(f"\nConnecting to Spark session: {spark_app_name}")
+
+    # Create new Spark session with PostgreSQL JDBC driver
+    # Use shared path accessible by both Airflow and Spark containers
+    jdbc_jar = "/opt/airflow/notebook/data/jars/postgresql-42.7.1.jar"
+    print(f"\nCreating new Spark session: {spark_app_name}")
+
+    # Stop any existing Spark sessions first to avoid conflicts
+    try:
+        SparkSession.getActiveSession().stop()
+        print("✓ Stopped existing Spark session")
+    except:
+        pass
+
     spark = SparkSession.builder \
         .appName(spark_app_name) \
         .master(spark_master) \
+        .config("spark.jars", jdbc_jar) \
+        .config("spark.driver.extraClassPath", jdbc_jar) \
+        .config("spark.executor.extraClassPath", jdbc_jar) \
         .getOrCreate()
-    
+
     spark.sparkContext.setLogLevel("ERROR")
-    print("✓ Connected to Spark session")
+    print("✓ Created new Spark session")
+    print(f"  Spark Version: {spark.version}")
+    print(f"  Master URL: {spark.sparkContext.master}")
     
     # Read FULL_STOCKS.csv into Spark DataFrame
     print(f"\nReading data from: {input_path}")
@@ -194,18 +214,19 @@ def run_spark_analytics(input_path, **context):
     # Question 5: Total trade amount per day of the week (highest to lowest)
     print("\n[5/5] Total trade amount per day of the week...")
     day_cols = ["day_Monday", "day_Tuesday", "day_Wednesday", "day_Thursday", "day_Friday"]
-    
-    # Compute total trade amount for each day
-    sums = []
-    for col in day_cols:
-        total = df.filter(fn.col(col) == 1) \
-                  .agg(fn.sum("total_trade_amount").alias("total")) \
-                  .collect()[0]["total"]
-        total = float(total) if total is not None else 0.0
-        sums.append((col.replace("day_", ""), total))
-    
-    q5_result = spark.createDataFrame(sums, ["day", "total_trade_amount"]) \
-                     .orderBy(fn.desc("total_trade_amount"))
+
+    # More efficient approach: compute all day totals in a single pass
+    q5_result = df.select(
+        fn.when(fn.col("day_Monday") == 1, fn.lit("Monday"))
+          .when(fn.col("day_Tuesday") == 1, fn.lit("Tuesday"))
+          .when(fn.col("day_Wednesday") == 1, fn.lit("Wednesday"))
+          .when(fn.col("day_Thursday") == 1, fn.lit("Thursday"))
+          .when(fn.col("day_Friday") == 1, fn.lit("Friday"))
+          .alias("day"),
+        "total_trade_amount"
+    ).groupBy("day") \
+     .agg(fn.sum("total_trade_amount").alias("total_trade_amount")) \
+     .orderBy(fn.desc("total_trade_amount"))
     
     q5_result.show()
     q5_pandas = q5_result.toPandas()
@@ -373,10 +394,11 @@ with DAG(
             task_id='run_spark_analytics',
             python_callable=run_spark_analytics,
             op_kwargs={
+                # Use Airflow container path (driver runs in Airflow, executors run in Spark)
                 'input_path': '/opt/airflow/notebook/data/FULL_STOCKS.csv'
             },
             provide_context=True,
-            
+
         )
         
         # Define task dependencies

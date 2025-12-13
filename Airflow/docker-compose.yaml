@@ -10,11 +10,9 @@ x-airflow-common:
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.3}
   environment:
     &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
     # UPDATED: Pointing to 'airflow-postgres' service instead of 'postgres'
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -25,6 +23,15 @@ x-airflow-common:
     AIRFLOW__WEBSERVER__WORKER_REFRESH_INTERVAL: 0
     AIRFLOW__WEBSERVER__RELOAD_ON_PLUGIN_CHANGE: 'false'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    # Database connection for DAGs (points to pgdatabase, not airflow-postgres)
+    DB_HOST: pgdatabase
+    DB_USER: postgres
+    DB_PASSWORD: postgres
+    DB_PORT: '5432'
+    DB_NAME: Trades_Database
+    # Java and Spark configuration
+    JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+    SPARK_HOME: /home/airflow/.local/lib/python3.12/site-packages/pyspark
     # AI Agent Configuration - loaded from .env file
     GEMINI_API_KEY: ${GEMINI_API_KEY}
   volumes:
@@ -37,10 +44,12 @@ x-airflow-common:
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
-    redis:
-      condition: service_healthy
     airflow-postgres:
       condition: service_healthy
+    pgdatabase:
+      condition: service_healthy
+    spark-master:
+      condition: service_started
 
 services:
   # ==========================================
@@ -104,7 +113,7 @@ services:
       ADMINER_DEFAULT_SERVER: pgdatabase
 
   jupyter:
-    image: quay.io/jupyter/pyspark-notebook:2024-10-14
+    image: quay.io/jupyter/pyspark-notebook:2024-12-09
     command: start-notebook.sh --NotebookApp.token=''
     volumes:
       - ./notebooks:/home/jovyan/examples/
@@ -127,6 +136,7 @@ services:
     volumes:
       - ./app/data:/app/data
       - ./notebook/data:/notebook/data
+      - ./notebook/data:/opt/airflow/notebook/data
     environment:
       - SPARK_NO_DAEMONIZE=true
       - SPARK_LOG_DIR=/tmp/spark-logs
@@ -150,6 +160,7 @@ services:
     volumes:
       - ./app/data:/app/data
       - ./notebook/data:/notebook/data
+      - ./notebook/data:/opt/airflow/notebook/data
     environment:
       - SPARK_NO_DAEMONIZE=true
       - SPARK_LOG_DIR=/tmp/spark-logs
@@ -247,6 +258,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+      spark-master:
+        condition: service_started
 
   airflow-worker:
     <<: *airflow-common
@@ -267,8 +280,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-      spark-master:
-        condition: service_started
 
   airflow-triggerer:
     <<: *airflow-common
