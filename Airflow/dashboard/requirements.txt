@@ -1,0 +1,12 @@
+streamlit
+pandas
+plotly
+sqlalchemy
+psycopg2-binary
+langchain
+langchain-core
+langchain-community
+langchain-openai
+langchain-google-genai
+google-generativeai
+tabulate

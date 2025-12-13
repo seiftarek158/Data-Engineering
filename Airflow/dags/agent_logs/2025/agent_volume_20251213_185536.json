@@ -1,0 +1,142 @@
+{
+  "execution_date": "2025-12-13T18:47:54.308209+00:00",
+  "dag_run_id": "manual__2025-12-13T18:47:54.308209+00:00",
+  "total_queries": 15,
+  "queries": [
+    {
+      "query_number": 1,
+      "user_query": "What was the total trading volume for technology stocks last month?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: dict is not a sequence",
+      "status": "failed",
+      "timestamp": "2025-12-13T18:53:32.591732"
+    },
+    {
+      "query_number": 2,
+      "user_query": "Show me the top 10 customers by trade amount",
+      "sql_generated": "SELECT\n  customer_id,\n  SUM(total_trade_amount) AS total_trade_amount\nFROM cleaned_trades\nGROUP BY\n  customer_id\nORDER BY\n  total_trade_amount DESC\nLIMIT 10;",
+      "row_count": 10,
+      "agent_response": "[{'customer_id': 4747, 'total_trade_amount': 51940769.05431349}, {'customer_id': 4955, 'total_trade_amount': 26312384.986372937}, {'customer_id': 3588, 'total_trade_amount': 14684275.610717185}, {'customer_id': 3938, 'total_trade_amount': 13764491.117762329}, {'customer_id': 193, 'total_trade_amount': 12741444.51439924}, {'customer_id': 1513, 'total_trade_amount': 12167282.111784454}, {'customer_id': 4519, 'total_trade_amount': 7142385.956251005}, {'customer_id': 182, 'total_trade_amount': 63004",
+      "status": "success",
+      "timestamp": "2025-12-13T18:53:35.452602"
+    },
+    {
+      "query_number": 3,
+      "user_query": "What is the average trade size for retail accounts?",
+      "sql_generated": "SELECT AVG(average_trade_size)\nFROM cleaned_trades\nWHERE customer_account_type = 'Retail'",
+      "row_count": 1,
+      "agent_response": "[{'avg': 197.11204323493322}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:53:39.202394"
+    },
+    {
+      "query_number": 4,
+      "user_query": "How many transactions occurred on weekends?",
+      "sql_generated": "SELECT COUNT(transaction_id) FROM cleaned_trades WHERE is_weekend = TRUE",
+      "row_count": 1,
+      "agent_response": "[{'count': 0}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:53:42.253740"
+    },
+    {
+      "query_number": 5,
+      "user_query": "Which stock sector has the highest liquidity?",
+      "sql_generated": "SELECT stock_sector FROM spark_sql_4 ORDER BY total_volume DESC LIMIT 1",
+      "row_count": 0,
+      "agent_response": "[]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:53:51.438393"
+    },
+    {
+      "query_number": 6,
+      "user_query": "Show me all transactions for customer with ID 4747",
+      "sql_generated": "SELECT * FROM cleaned_trades WHERE customer_id = 4747",
+      "row_count": 1826,
+      "agent_response": "[{'transaction_id': 1, 'timestamp': '2023-01-02', 'customer_id': 4747, 'stock_ticker': 'STK002', 'transaction_type': 'BUY', 'quantity': 15, 'average_trade_size': 139.4, 'stock_price': 4.967956350196401, 'total_trade_amount': 2155.992711157844, 'customer_account_type': 'Retail', 'day_name': 'Monday', 'is_weekend': False, 'is_holiday': False, 'stock_liquidity_tier': 'Low', 'stock_sector': 'Consumer', 'stock_industry': 'Retail'}, {'transaction_id': 2, 'timestamp': '2023-01-02', 'customer_id': 4747,",
+      "status": "success",
+      "timestamp": "2025-12-13T18:53:53.471319"
+    },
+    {
+      "query_number": 7,
+      "user_query": "What are the total buy versus sell transaction amounts?",
+      "sql_generated": "SELECT\n  transaction_type,\n  SUM(total_trade_amount) AS total_amount\nFROM cleaned_trades\nWHERE\n  transaction_type IN ('BUY', 'SELL')\nGROUP BY\n  transaction_type;",
+      "row_count": 2,
+      "agent_response": "[{'transaction_type': 'SELL', 'total_amount': 77164564.79609497}, {'transaction_type': 'BUY', 'total_amount': 212525801.64353478}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:54:33.346158"
+    },
+    {
+      "query_number": 8,
+      "user_query": "Which day of the week has the most trading activity?",
+      "sql_generated": "SELECT day FROM spark_analytics_5 ORDER BY total_trade_amount DESC LIMIT 1",
+      "row_count": 1,
+      "agent_response": "[{'day': 'Thursday'}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:54:39.122477"
+    },
+    {
+      "query_number": 9,
+      "user_query": "Show me all stocks in the high liquidity tier",
+      "sql_generated": "SELECT DISTINCT stock_ticker FROM cleaned_trades WHERE stock_liquidity_tier = 'High'",
+      "row_count": 5,
+      "agent_response": "[{'stock_ticker': 'STK010'}, {'stock_ticker': 'STK008'}, {'stock_ticker': 'STK012'}, {'stock_ticker': 'STK009'}, {'stock_ticker': 'STK006'}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:54:41.013994"
+    },
+    {
+      "query_number": 10,
+      "user_query": "What is the transaction count by customer account type?",
+      "sql_generated": "SELECT customer_account_type, COUNT(transaction_id) AS transaction_count\nFROM cleaned_trades\nGROUP BY customer_account_type",
+      "row_count": 2,
+      "agent_response": "[{'customer_account_type': 'Institutional', 'transaction_count': 887}, {'customer_account_type': 'Retail', 'transaction_count': 9113}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:54:44.338136"
+    },
+    {
+      "query_number": 11,
+      "user_query": "Which stock ticker had the highest trade volume?",
+      "sql_generated": "SELECT stock_ticker\nFROM spark_analytics_1\nORDER BY total_volume DESC\nLIMIT 1",
+      "row_count": 1,
+      "agent_response": "[{'stock_ticker': 5}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:54:46.350877"
+    },
+    {
+      "query_number": 12,
+      "user_query": "What percentage of trades happened during holidays?",
+      "sql_generated": "SELECT\n  CAST(SUM(CASE WHEN period_type = 'Holiday' THEN transaction_count ELSE 0 END) AS REAL) * 100 / SUM(transaction_count)\nFROM spark_sql_3",
+      "row_count": 1,
+      "agent_response": "[{'?column?': 1.8}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:54:50.040253"
+    },
+    {
+      "query_number": 13,
+      "user_query": "Show me the average stock price by sector",
+      "sql_generated": "SELECT sector, AVG(stock_price) AS average_stock_price\nFROM final_stocks\nGROUP BY sector;",
+      "row_count": 5,
+      "agent_response": "[{'sector': 0, 'average_stock_price': 204.10176315663176}, {'sector': 1, 'average_stock_price': 245.84550923239448}, {'sector': 3, 'average_stock_price': 485.6957699273362}, {'sector': 4, 'average_stock_price': 142.32121083592165}, {'sector': 2, 'average_stock_price': 638.0013248855718}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:55:28.248690"
+    },
+    {
+      "query_number": 14,
+      "user_query": "How many unique customers made transactions?",
+      "sql_generated": "SELECT count(DISTINCT customer_id) FROM cleaned_trades",
+      "row_count": 1,
+      "agent_response": "[{'count': 1522}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:55:31.270122"
+    },
+    {
+      "query_number": 15,
+      "user_query": "What is the total trade amount by transaction type?",
+      "sql_generated": "SELECT transaction_type, SUM(total_trade_amount) AS total_trade_amount\nFROM cleaned_trades\nGROUP BY transaction_type",
+      "row_count": 2,
+      "agent_response": "[{'transaction_type': 'SELL', 'total_trade_amount': 77164564.79609497}, {'transaction_type': 'BUY', 'total_trade_amount': 212525801.64353478}]",
+      "status": "success",
+      "timestamp": "2025-12-13T18:55:33.273256"
+    }
+  ]
+}

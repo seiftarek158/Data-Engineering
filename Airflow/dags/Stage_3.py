@@ -42,7 +42,7 @@ def stage_3_kafka_streaming_dag():
         
         The producer:
         - Reads from the `stream.csv` file
-        - Sends records to Kafka topic `stock-trades-topic`
+        - Sends records to Kafka topic `55_0654_Topic`
         - Sends an 'EOS' (End of Stream) message upon completion
         
         **Note:** Adjust the path if kafka_producer.py is in a different location.
@@ -84,11 +84,13 @@ def stage_3_kafka_streaming_dag():
 
         print("Connecting to Kafka consumer...")
         consumer = KafkaConsumer(
-            "stock-trades-topic",
+            "55_0654_Topic",
             bootstrap_servers="kafka:9092",
             auto_offset_reset="earliest",
             consumer_timeout_ms=60000,  # Timeout after 60 seconds of inactivity
             value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+            group_id="stage_3_consumer",
+            enable_auto_commit=True,
         )
 
         processed_records = []
@@ -98,6 +100,11 @@ def stage_3_kafka_streaming_dag():
         for message in consumer:
             message_count += 1
             
+            # Handle End Of Stream messages produced as a dict {"EOS": True}
+            if isinstance(message.value, dict) and message.value.get("EOS"):
+                print(f"End of Stream message received after processing {message_count - 1} messages.")
+                break
+            # Also support plain string EOS if encountered
             if message.value == "EOS":
                 print(f"End of Stream message received after processing {message_count - 1} messages.")
                 break

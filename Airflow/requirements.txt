@@ -5,9 +5,12 @@ numpy
 psycopg2-binary
 sqlalchemy
 kafka-python-ng
-pyspark<= 3.5.7
+pyspark==3.5.3
 langchain
+langchain-core
 langchain-community
+langchain-google-genai
+google-generativeai
 openai # or google-generativeai, or langchain-ollama
 streamlit # or dash, plotly
 python-dotenv
