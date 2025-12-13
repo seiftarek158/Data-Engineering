@@ -39,6 +39,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-.}/dashboard:/opt/airflow/dashboard
     # Mount notebook data to airflow to allow DAGs to access it
     - ./notebook/data:/opt/airflow/notebook/data
   user: "${AIRFLOW_UID:-50000}:0"
@@ -232,7 +233,6 @@ services:
     command: webserver
     ports:
       - "8085:8080" # CHANGED: 8085 to avoid conflict with Spark Master (8080)
-      - "8502:8502" # Streamlit dashboard for Stage 5
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
@@ -400,12 +400,12 @@ services:
   # STREAMLIT DASHBOARDS
   # ==========================================
 
-  # AI Agent Dashboard (Stage 6)
+  # AI Agent Dashboard (Stage 6) - Port 8501
   dashboard:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
-    container_name: streamlit-dashboard-ai-agent
+    container_name: streamlit-ai-agent-dashboard
     ports:
       - "8501:8501"
     environment:
@@ -415,6 +415,24 @@ services:
       - DB_PORT=5432
       - POSTGRES_DB=Trades_Database
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - pgdatabase
+    restart: unless-stopped
+
+  # Visualization Dashboard (Stage 5) - Port 8502
+  visualization-dashboard:
+    build:
+      context: ./visualization
+      dockerfile: Dockerfile
+    container_name: streamlit-visualization-dashboard
+    ports:
+      - "8502:8501"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - DB_HOST=pgdatabase
+      - DB_PORT=5432
+      - POSTGRES_DB=Trades_Database
     depends_on:
       - pgdatabase
     restart: unless-stopped

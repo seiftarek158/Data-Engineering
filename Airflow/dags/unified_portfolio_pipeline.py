@@ -1669,15 +1669,9 @@ with DAG(
             python_callable=prepare_visualization,
             provide_context=True,
         )
-
-        # Task 2: Start Streamlit Dashboard
-        task_start_dashboard = BashOperator(
-            task_id='start_visualization_service',
-            bash_command='streamlit run /opt/airflow/dags/dashboard.py --server.port=8501 --server.address=0.0.0.0',
-        )
-
-        # Define task dependencies
-        task_prepare_viz >> task_start_dashboard
+        
+        # Note: Visualization dashboard runs as separate Docker container on port 8502
+        # Access at http://localhost:8502
 
     # ========================================================================
     # STAGE 6: AI AGENT QUERY PROCESSING
