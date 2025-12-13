@@ -280,6 +280,12 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+      spark-master:
+        condition: service_started
+      kafka:
+        condition: service_started
+      pgdatabase:
+        condition: service_healthy
 
   airflow-triggerer:
     <<: *airflow-common

@@ -642,69 +642,124 @@ def save_final_to_postgres_task(**context):
 # ============================================================================
 
 def initialize_spark_session_task(**context):
-    """Initialize Spark Session"""
+    """
+    Task 1: Initialize Spark Session
+    
+    Creates a Spark session connected to the Spark master node with
+    the team-specific application name.
+    """
+    # Import PySpark inside function to avoid slow DAG parsing
     from pyspark.sql import SparkSession
     
     print("="*70)
-    print("STAGE 4 TASK 1: INITIALIZING SPARK SESSION")
+    print("INITIALIZING SPARK SESSION")
     print("="*70)
     
+    # Load Spark configuration
     spark_master = 'spark://spark-master:7077'
     spark_app_name = 'M3_SPARK_APP_55_0654'
     
-    print(f"Spark Master: {spark_master}")
-    print(f"App Name: {spark_app_name}")
+    print(f"\nSpark Configuration:")
+    print(f"  Master: {spark_master}")
+    print(f"  App Name: {spark_app_name}")
     
+    # Create Spark session with PostgreSQL JDBC driver
+    # Use shared path accessible by both Airflow and Spark containers
+    jdbc_jar = "/opt/airflow/notebook/data/jars/postgresql-42.7.1.jar"
     spark = SparkSession.builder \
         .appName(spark_app_name) \
         .master(spark_master) \
+        .config("spark.jars", jdbc_jar) \
+        .config("spark.driver.extraClassPath", jdbc_jar) \
+        .config("spark.executor.extraClassPath", jdbc_jar) \
         .getOrCreate()
     
+    # Set log level to reduce verbosity
     spark.sparkContext.setLogLevel("ERROR")
     
-    print(f"✓ Spark Session initialized")
+    print(f"\n✓ Spark Session initialized successfully")
     print(f"  Spark Version: {spark.version}")
+    print(f"  Master URL: {spark.sparkContext.master}")
+    print(f"  App Name: {spark.sparkContext.appName}")
     
+    # Store spark session info in XCom
     context['task_instance'].xcom_push(key='spark_app_name', value=spark_app_name)
     context['task_instance'].xcom_push(key='spark_master', value=spark_master)
     
-    print("✓ STAGE 4 TASK 1 COMPLETED")
+    # Don't stop the session - it will be reused by next task
+    print("\n✓ Spark session ready for analytics tasks")
+    print("="*70)
+    
     return spark_app_name
 
 
-def run_spark_analytics_task(**context):
-    """Run Spark Analytics - Read from PostgreSQL final_stocks table"""
+def run_spark_analytics_task(input_path, **context):
+    """
+    Task 2: Run Spark Analytics
+
+    This function:
+    1. Creates a new Spark session
+    2. Reads FULL_STOCKS.csv into Spark DataFrame
+    3. Executes all 5 Spark DataFrame operations from Milestone 2
+    4. Executes all 5 Spark SQL queries from Milestone 2
+    5. Saves each result to PostgreSQL analytics tables
+    """
+    # Import heavy libraries inside function to avoid slow DAG parsing
     from pyspark.sql import SparkSession
     from pyspark.sql import functions as fn
     from sqlalchemy import create_engine
-    import pandas as pd
-    from dotenv import load_dotenv
-    
+
     print("="*70)
-    print("STAGE 4 TASK 2: RUNNING SPARK ANALYTICS")
+    print("RUNNING SPARK ANALYTICS")
     print("="*70)
-    
-    load_dotenv()
-    
+
+    # Spark configuration
     spark_master = 'spark://spark-master:7077'
     spark_app_name = 'M3_SPARK_APP_55_0654'
-    
+
+    from dotenv import load_dotenv
+    load_dotenv()
+    # Load database configuration from environment
     db_host = os.getenv('DB_HOST', 'pgdatabase')
     db_user = os.getenv('DB_USER', 'postgres')
     db_password = os.getenv('DB_PASSWORD', 'postgres')
     db_port = os.getenv('DB_PORT', '5432')
     db_name = os.getenv('DB_NAME', 'Trades_Database')
-    
-    print(f"Connecting to Spark session...")
+
+    # Create new Spark session with PostgreSQL JDBC driver
+    # Use shared path accessible by both Airflow and Spark containers
+    jdbc_jar = "/opt/airflow/notebook/data/jars/postgresql-42.7.1.jar"
+    print(f"\nCreating new Spark session: {spark_app_name}")
+
+    # Stop any existing Spark sessions first to avoid conflicts
+    try:
+        SparkSession.getActiveSession().stop()
+        print("✓ Stopped existing Spark session")
+    except:
+        pass
+
     spark = SparkSession.builder \
         .appName(spark_app_name) \
         .master(spark_master) \
+        .config("spark.jars", jdbc_jar) \
+        .config("spark.driver.extraClassPath", jdbc_jar) \
+        .config("spark.executor.extraClassPath", jdbc_jar) \
         .getOrCreate()
-    
+
     spark.sparkContext.setLogLevel("ERROR")
-    print("✓ Connected to Spark session")
+    print("✓ Created new Spark session")
+    print(f"  Spark Version: {spark.version}")
+    print(f"  Master URL: {spark.sparkContext.master}")
     
-    # Read from PostgreSQL final_stocks table instead of CSV
+    # Read FULL_STOCKS.csv into Spark DataFrame
+    print(f"\nReading data from: {input_path}")
+    df = spark.read.csv(input_path, header=True, inferSchema=True)
+    
+    print(f"✓ Loaded CSV file successfully")
+    print(f"  Total records: {df.count()}")
+    print(f"  Total columns: {len(df.columns)}")
+    
+    # Database connection string
     jdbc_url = f"jdbc:postgresql://{db_host}:{db_port}/{db_name}"
     connection_properties = {
         "user": db_user,
@@ -712,24 +767,17 @@ def run_spark_analytics_task(**context):
         "driver": "org.postgresql.Driver"
     }
     
-    print(f"\nReading data from PostgreSQL table: final_stocks")
-    df = spark.read.jdbc(
-        url=jdbc_url,
-        table="final_stocks",
-        properties=connection_properties
-    )
-    
-    print(f"✓ Loaded data from PostgreSQL successfully")
-    print(f"  Total records: {df.count()}")
-    print(f"  Total columns: {len(df.columns)}")
-    
-    # SQLAlchemy for saving results
+    # Alternative: SQLAlchemy for pandas compatibility
     sqlalchemy_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
     engine = create_engine(sqlalchemy_url)
     
     print("\n" + "="*70)
     print("EXECUTING SPARK DATAFRAME ANALYTICS")
     print("="*70)
+    
+    # ========================================================================
+    # SPARK DATAFRAME QUESTIONS (from Milestone 2)
+    # ========================================================================
     
     # Question 1: Total trading volume for each stock ticker
     print("\n[1/5] Total trading volume for each stock ticker...")
@@ -743,7 +791,7 @@ def run_spark_analytics_task(**context):
     
     # Question 2: Average stock price by sector
     print("\n[2/5] Average stock price by sector...")
-    q2_result = df.groupBy("sector") \
+    q2_result = df.groupBy("stock_sector") \
         .agg(fn.avg("stock_price").alias("avg_stock_price"))
     
     q2_result.show()
@@ -753,7 +801,7 @@ def run_spark_analytics_task(**context):
     
     # Question 3: Buy vs Sell transactions on weekends
     print("\n[3/5] Buy vs Sell transactions on weekends...")
-    q3_result = df.filter(fn.col("is_weekend") == True) \
+    q3_result = df.filter(fn.col("is_weekend") == 1) \
         .groupBy("transaction_type") \
         .agg(fn.count("transaction_id").alias("transaction_count"))
     
@@ -774,33 +822,44 @@ def run_spark_analytics_task(**context):
     q4_pandas.to_sql('spark_analytics_4', con=engine, if_exists='replace', index=False)
     print(f"✓ Saved {len(q4_pandas)} records to table: spark_analytics_4")
     
-    # Question 5: Total trade amount per day of the week
+    # Question 5: Total trade amount per day of the week (highest to lowest)
     print("\n[5/5] Total trade amount per day of the week...")
-    # Calculate total_trade_amount if not present
-    if 'total_trade_amount' not in df.columns:
-        df = df.withColumn('total_trade_amount', fn.col('stock_price') * fn.col('quantity'))
-    
-    q5_result = df.groupBy("day_name") \
-        .agg(fn.sum("total_trade_amount").alias("total_trade_amount")) \
-        .orderBy(fn.desc("total_trade_amount"))
+    day_cols = ["day_Monday", "day_Tuesday", "day_Wednesday", "day_Thursday", "day_Friday"]
+
+    # More efficient approach: compute all day totals in a single pass
+    q5_result = df.select(
+        fn.when(fn.col("day_Monday") == 1, fn.lit("Monday"))
+          .when(fn.col("day_Tuesday") == 1, fn.lit("Tuesday"))
+          .when(fn.col("day_Wednesday") == 1, fn.lit("Wednesday"))
+          .when(fn.col("day_Thursday") == 1, fn.lit("Thursday"))
+          .when(fn.col("day_Friday") == 1, fn.lit("Friday"))
+          .alias("day"),
+        "total_trade_amount"
+    ).groupBy("day") \
+     .agg(fn.sum("total_trade_amount").alias("total_trade_amount")) \
+     .orderBy(fn.desc("total_trade_amount"))
     
     q5_result.show()
     q5_pandas = q5_result.toPandas()
     q5_pandas.to_sql('spark_analytics_5', con=engine, if_exists='replace', index=False)
     print(f"✓ Saved {len(q5_pandas)} records to table: spark_analytics_5")
     
-    print("\n✓ All Spark DataFrame analytics completed")
+    print("\n✓ All Spark DataFrame analytics completed and saved to PostgreSQL")
     
-    # SPARK SQL QUESTIONS
+    # ========================================================================
+    # SPARK SQL QUESTIONS (from Milestone 2)
+    # ========================================================================
+    
     print("\n" + "="*70)
     print("EXECUTING SPARK SQL ANALYTICS")
     print("="*70)
     
+    # Register DataFrame as temporary SQL table
     df.createOrReplaceTempView("trades")
     print("✓ Created temporary view: trades")
     
-    # SQL Question 1: Top 5 most traded stock tickers
-    print("\n[1/5] Top 5 most traded stock tickers...")
+    # SQL Question 1: Top 5 most traded stock tickers by total quantity
+    print("\n[1/5] Top 5 most traded stock tickers by total quantity...")
     sql1_result = spark.sql("""
         SELECT stock_ticker, 
                SUM(quantity) as total_quantity
@@ -818,10 +877,14 @@ def run_spark_analytics_task(**context):
     # SQL Question 2: Average trade amount by customer account type
     print("\n[2/5] Average trade amount by customer account type...")
     sql2_result = spark.sql("""
-        SELECT account_type,
-            AVG(stock_price * quantity) as avg_trade_amount
+        SELECT 
+            CASE customer_account_type
+                WHEN 0 THEN 'Institutional'
+                ELSE 'Retail'
+            END as account_type,
+            AVG(total_trade_amount) as avg_trade_amount
         FROM trades
-        GROUP BY account_type
+        GROUP BY customer_account_type
     """)
     
     sql2_result.show()
@@ -834,7 +897,7 @@ def run_spark_analytics_task(**context):
     sql3_result = spark.sql("""
         SELECT 
             CASE 
-                WHEN is_holiday = true THEN 'Holiday'
+                WHEN is_holiday = 1 THEN 'Holiday'
                 ELSE 'Non-Holiday'
             END as period_type,
             COUNT(transaction_id) as transaction_count
@@ -847,14 +910,14 @@ def run_spark_analytics_task(**context):
     sql3_pandas.to_sql('spark_sql_3', con=engine, if_exists='replace', index=False)
     print(f"✓ Saved {len(sql3_pandas)} records to table: spark_sql_3")
     
-    # SQL Question 4: Stock sectors with highest trading volume on weekends
+    # SQL Question 4: Stock sectors with highest total trading volume on weekends
     print("\n[4/5] Stock sectors with highest trading volume on weekends...")
     sql4_result = spark.sql("""
-        SELECT sector,
+        SELECT stock_sector,
                SUM(quantity) as total_volume
         FROM trades
-        WHERE is_weekend = true
-        GROUP BY sector
+        WHERE is_weekend = 1
+        GROUP BY stock_sector
         ORDER BY total_volume DESC
     """)
     
@@ -863,15 +926,18 @@ def run_spark_analytics_task(**context):
     sql4_pandas.to_sql('spark_sql_4', con=engine, if_exists='replace', index=False)
     print(f"✓ Saved {len(sql4_pandas)} records to table: spark_sql_4")
     
-    # SQL Question 5: Total buy vs sell amount for each liquidity tier
+    # SQL Question 5: Total buy vs sell amount for each stock liquidity tier
     print("\n[5/5] Total buy vs sell amount for each liquidity tier...")
     sql5_result = spark.sql("""
-        SELECT liquidity_tier,
-               transaction_type,
-               SUM(stock_price * quantity) as total_amount
+        SELECT stock_liquidity_tier,
+               CASE transaction_type
+                   WHEN 0 THEN 'BUY'
+                   ELSE 'SELL'
+               END as transaction_type,
+               SUM(total_trade_amount) as total_amount
         FROM trades
-        GROUP BY liquidity_tier, transaction_type
-        ORDER BY liquidity_tier, transaction_type
+        GROUP BY stock_liquidity_tier, transaction_type
+        ORDER BY stock_liquidity_tier, transaction_type
     """)
     
     sql5_result.show()
@@ -879,13 +945,32 @@ def run_spark_analytics_task(**context):
     sql5_pandas.to_sql('spark_sql_5', con=engine, if_exists='replace', index=False)
     print(f"✓ Saved {len(sql5_pandas)} records to table: spark_sql_5")
     
-    print("\n✓ All Spark SQL analytics completed")
+    print("\n✓ All Spark SQL analytics completed and saved to PostgreSQL")
+    
+    # Summary
+    print("\n" + "="*70)
+    print("ANALYTICS SUMMARY")
+    print("="*70)
+    print("\nSpark DataFrame Analytics Tables:")
+    print("  • spark_analytics_1: Total trading volume by stock ticker")
+    print("  • spark_analytics_2: Average stock price by sector")
+    print("  • spark_analytics_3: Buy vs Sell transactions on weekends")
+    print("  • spark_analytics_4: Customers with >10 transactions")
+    print("  • spark_analytics_5: Total trade amount per day of week")
+    print("\nSpark SQL Analytics Tables:")
+    print("  • spark_sql_1: Top 5 most traded stock tickers")
+    print("  • spark_sql_2: Average trade amount by account type")
+    print("  • spark_sql_3: Transactions during holidays vs non-holidays")
+    print("  • spark_sql_4: Stock sectors trading volume on weekends")
+    print("  • spark_sql_5: Buy vs sell amount by liquidity tier")
     
     print("\n" + "="*70)
     print("✓ SPARK ANALYTICS COMPLETED SUCCESSFULLY")
     print("="*70)
     
+    # Stop Spark session
     spark.stop()
+    
     return "analytics_complete"
 
 
@@ -1226,19 +1311,23 @@ with DAG(
     # ========================================================================
     with TaskGroup(group_id='stage_4_spark_analytics') as stage_4:
         
-        initialize_spark_session = PythonOperator(
+        initialize_spark_session_task = PythonOperator(
             task_id='initialize_spark_session',
             python_callable=initialize_spark_session_task,
             provide_context=True,
         )
         
-        run_spark_analytics = PythonOperator(
+        run_spark_analytics_task = PythonOperator(
             task_id='run_spark_analytics',
             python_callable=run_spark_analytics_task,
+            op_kwargs={
+                # Use Airflow container path (driver runs in Airflow, executors run in Spark)
+                'input_path': '/opt/airflow/notebook/data/FULL_STOCKS.csv'
+            },
             provide_context=True,
         )
         
-        initialize_spark_session >> run_spark_analytics
+        initialize_spark_session_task >> run_spark_analytics_task
     
     # ========================================================================
     # STAGE 6: AI AGENT QUERY PROCESSING
