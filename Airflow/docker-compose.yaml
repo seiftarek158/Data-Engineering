@@ -396,13 +396,15 @@ services:
         condition: service_completed_successfully
 
   # ==========================================
-  # STREAMLIT DASHBOARD FOR AI AGENT
+  # STREAMLIT DASHBOARDS
   # ==========================================
+
+  # AI Agent Dashboard (Stage 6)
   dashboard:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
-    container_name: streamlit-dashboard
+    container_name: streamlit-dashboard-ai-agent
     ports:
       - "8501:8501"
     environment:
@@ -415,6 +417,29 @@ services:
     depends_on:
       - pgdatabase
     restart: unless-stopped
+
+  # Stage 5 Visualization Dashboard
+  visualization-dashboard:
+    build: .
+    container_name: streamlit-visualization-dashboard
+    command: streamlit run /opt/airflow/dags/dashboard.py --server.port=8502 --server.address=0.0.0.0
+    ports:
+      - "8502:8502"
+    environment:
+      - DB_HOST=pgdatabase
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_PORT=5432
+      - DB_NAME=Trades_Database
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+      - ${AIRFLOW_PROJ_DIR:-.}/notebook/data:/opt/airflow/notebook/data
+    depends_on:
+      pgdatabase:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - visualization
 
 volumes:
   postgres-db-volume:
