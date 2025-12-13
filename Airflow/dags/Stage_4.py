@@ -52,10 +52,15 @@ def initialize_spark_session(**context):
     print(f"  Master: {spark_master}")
     print(f"  App Name: {spark_app_name}")
     
-    # Create Spark session
+    # Create Spark session with PostgreSQL JDBC driver
+    # Use shared path accessible by both Airflow and Spark containers
+    jdbc_jar = "/opt/airflow/notebook/data/jars/postgresql-42.7.1.jar"
     spark = SparkSession.builder \
         .appName(spark_app_name) \
         .master(spark_master) \
+        .config("spark.jars", jdbc_jar) \
+        .config("spark.driver.extraClassPath", jdbc_jar) \
+        .config("spark.executor.extraClassPath", jdbc_jar) \
         .getOrCreate()
     
     # Set log level to reduce verbosity
@@ -110,11 +115,16 @@ def run_spark_analytics(input_path, **context):
     db_port = os.getenv('DB_PORT', '5432')
     db_name = os.getenv('DB_NAME', 'Trades_Database')
     
-    # Connect to Spark session
+    # Connect to Spark session with PostgreSQL JDBC driver
+    # Use shared path accessible by both Airflow and Spark containers
+    jdbc_jar = "/opt/airflow/notebook/data/jars/postgresql-42.7.1.jar"
     print(f"\nConnecting to Spark session: {spark_app_name}")
     spark = SparkSession.builder \
         .appName(spark_app_name) \
         .master(spark_master) \
+        .config("spark.jars", jdbc_jar) \
+        .config("spark.driver.extraClassPath", jdbc_jar) \
+        .config("spark.executor.extraClassPath", jdbc_jar) \
         .getOrCreate()
     
     spark.sparkContext.setLogLevel("ERROR")
@@ -373,10 +383,11 @@ with DAG(
             task_id='run_spark_analytics',
             python_callable=run_spark_analytics,
             op_kwargs={
+                # Use Airflow container path (driver runs in Airflow, executors run in Spark)
                 'input_path': '/opt/airflow/notebook/data/FULL_STOCKS.csv'
             },
             provide_context=True,
-            
+
         )
         
         # Define task dependencies
