@@ -14,3 +14,4 @@ google-generativeai
 openai # or google-generativeai, or langchain-ollama
 streamlit # or dash, plotly
 python-dotenv
+reportlab

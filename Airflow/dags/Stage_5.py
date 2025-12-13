@@ -39,6 +39,14 @@ def prepare_visualization(**context):
     3. Decodes ONLY the main data table for detailed views
     4. Creates ADDITIONAL aggregated views not covered by Stage 4
     5. Decodes Stage 4 analytics tables where needed
+
+    **Metadata:**
+    - Input: Stage 4 analytics tables (spark_analytics_1-5, spark_sql_3, spark_sql_5)
+    - Input: master_encoding_lookup.json (from Stage 2)
+    - Input: integrated_encoded_trades_data.csv (from Stage 2)
+    - Output: 7 decoded Stage 4 tables (viz_volume_by_ticker, viz_avg_price_by_sector, etc.)
+    - Output: 6 new aggregated views (viz_sector_time, viz_liquidity_time, etc.)
+    - Output: 1 main decoded dataset (visualization_main_data)
     """
     import pandas as pd
     import json
@@ -241,7 +249,116 @@ def prepare_visualization(**context):
     sector_comparison.to_sql('viz_sector_comparison', con=engine, if_exists='replace', index=False)
     print(f"  • Created: viz_sector_comparison ({len(sector_comparison)} records)")
 
-    print("✓ All visualization data prepared successfully")
+    # ========================================================================
+    # Create Visualization Metadata Table
+    # ========================================================================
+    print("\n[5/5] Creating visualization metadata...")
+
+    metadata = pd.DataFrame([
+        {
+            'table_name': 'viz_volume_by_ticker',
+            'source': 'spark_analytics_1',
+            'description': 'Decoded stock ticker trading volumes from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_volume_by_ticker', con=engine).iloc[0]['cnt']) if 'viz_volume_by_ticker' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_avg_price_by_sector',
+            'source': 'spark_analytics_2',
+            'description': 'Decoded sector average stock prices from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_avg_price_by_sector', con=engine).iloc[0]['cnt']) if 'viz_avg_price_by_sector' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_weekend_transactions',
+            'source': 'spark_analytics_3',
+            'description': 'Weekend transaction type analysis from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_weekend_transactions', con=engine).iloc[0]['cnt']) if 'viz_weekend_transactions' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_active_customers',
+            'source': 'spark_analytics_4',
+            'description': 'Active customers with >10 transactions from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_active_customers', con=engine).iloc[0]['cnt']) if 'viz_active_customers' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_trade_by_day',
+            'source': 'spark_analytics_5',
+            'description': 'Trading activity by day of week from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_trade_by_day', con=engine).iloc[0]['cnt']) if 'viz_trade_by_day' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_holiday_comparison',
+            'source': 'spark_sql_3',
+            'description': 'Holiday vs non-holiday trading comparison from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_holiday_comparison', con=engine).iloc[0]['cnt']) if 'viz_holiday_comparison' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_liquidity_by_transaction',
+            'source': 'spark_sql_5',
+            'description': 'Liquidity tier by transaction type from Stage 4',
+            'row_count': len(pd.read_sql('SELECT COUNT(*) as cnt FROM viz_liquidity_by_transaction', con=engine).iloc[0]['cnt']) if 'viz_liquidity_by_transaction' in pd.read_sql("SELECT tablename FROM pg_tables WHERE schemaname='public'", con=engine)['tablename'].values else 0,
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_sector_time',
+            'source': 'Stage 5',
+            'description': 'Sector stock prices over time (time-series)',
+            'row_count': len(sector_time),
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_liquidity_time',
+            'source': 'Stage 5',
+            'description': 'Liquidity tier volumes over time (time-series)',
+            'row_count': len(liquidity_time),
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_top_customers',
+            'source': 'Stage 5',
+            'description': 'Top customers by portfolio value',
+            'row_count': len(customer_summary),
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_customer_distribution',
+            'source': 'Stage 5',
+            'description': 'Customer transaction count distribution',
+            'row_count': len(customer_dist),
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_transaction_summary',
+            'source': 'Stage 5',
+            'description': 'Transaction type summary (buy/sell)',
+            'row_count': len(trans_summary),
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'viz_sector_comparison',
+            'source': 'Stage 5',
+            'description': 'Sector comparison metrics',
+            'row_count': len(sector_comparison),
+            'created_at': datetime.now()
+        },
+        {
+            'table_name': 'visualization_main_data',
+            'source': 'Stage 2',
+            'description': 'Decoded main data for detailed drill-down',
+            'row_count': len(df_decoded),
+            'created_at': datetime.now()
+        }
+    ])
+
+    metadata.to_sql('visualization_metadata', con=engine, if_exists='replace', index=False)
+    print(f"✓ Created visualization_metadata table with {len(metadata)} entries")
+
+    print("\n✓ All visualization data prepared successfully")
     print("="*70)
 
     engine.dispose()
@@ -272,12 +389,46 @@ with DAG(
             task_id='prepare_visualization',
             python_callable=prepare_visualization,
             provide_context=True,
+            doc_md="""
+            #### Task Details
+            **PythonOperator** that prepares visualization data by:
+            1. Decoding Stage 4 Spark analytics tables (7 tables)
+            2. Creating additional time-series and customer-specific views (6 views)
+            3. Decoding main data table for detailed drill-down analysis
+
+            **Input Tables:**
+            - spark_analytics_1 (stock ticker + volume)
+            - spark_analytics_2 (sector + avg price)
+            - spark_analytics_3 (transaction type for weekends)
+            - spark_analytics_4 (active customers)
+            - spark_analytics_5 (trading by day of week)
+            - spark_sql_3 (holiday comparison)
+            - spark_sql_5 (liquidity tier analysis)
+
+            **Output Tables:**
+            - 7 decoded Stage 4 tables (viz_volume_by_ticker, viz_avg_price_by_sector, etc.)
+            - 6 new views (viz_sector_time, viz_liquidity_time, viz_top_customers, etc.)
+            - 1 main decoded dataset (visualization_main_data)
+            """,
         )
 
         # Task 2: Start Streamlit Dashboard
         task_start_dashboard = BashOperator(
             task_id='start_visualization_service',
             bash_command='streamlit run /opt/airflow/dags/dashboard.py --server.port=8501 --server.address=0.0.0.0',
+            doc_md="""
+            #### Task Details
+            **BashOperator** that launches the Streamlit visualization dashboard.
+
+            **Dashboard Features:**
+            - 6 Core Visualizations (Trading Volume, Price Trends, Buy/Sell, Day of Week, Customer Distribution, Top 10)
+            - 4 Advanced Visualizations (Portfolio KPIs, Sector Comparison, Holiday Analysis, Liquidity Analysis)
+            - Interactive filters (date range, stock ticker, sector, customer type)
+            - Export functionality (CSV, Excel, JSON)
+            - Refresh mechanism with 60-second cache
+
+            **Access:** http://localhost:8502
+            """,
         )
 
         # Define task dependencies

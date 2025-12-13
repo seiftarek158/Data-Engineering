@@ -662,13 +662,53 @@ with st.expander("📋 View Filtered Data"):
     st.dataframe(df_filtered.head(100), use_container_width=True)
     st.info(f"Showing first 100 of {len(df_filtered):,} filtered records")
 
-    # Download filtered data
-    csv = df_filtered.to_csv(index=False).encode('utf-8')
+    # Download filtered data as PDF
+    from io import BytesIO
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    def create_pdf(df):
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+        elements = []
+
+        # Add title
+        styles = getSampleStyleSheet()
+        title = Paragraph(f"<b>Filtered Trading Data - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</b>", styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 12))
+
+        # Prepare data for table (first 100 rows)
+        data_subset = df.head(100)
+        table_data = [data_subset.columns.tolist()] + data_subset.values.tolist()
+
+        # Create table
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('FONTSIZE', (0, 1), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+
+        elements.append(table)
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
+
+    pdf_buffer = create_pdf(df_filtered)
     st.download_button(
-        label="📥 Download Filtered Data as CSV",
-        data=csv,
-        file_name=f"filtered_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
+        label="📥 Download Filtered Data as PDF",
+        data=pdf_buffer,
+        file_name=f"filtered_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        mime="application/pdf"
     )
 
 # ============================================================================
