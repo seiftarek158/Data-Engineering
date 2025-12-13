@@ -7,12 +7,15 @@ import os
 # LangChain Imports
 try:
     from langchain_community.utilities import SQLDatabase
-    from langchain.chains import create_sql_query_chain
     from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
     from langchain_openai import ChatOpenAI
     from langchain_community.llms import Ollama
-except ImportError:
-    st.error("Missing libraries! Please ensure requirements.txt is installed.")
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    LANGCHAIN_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Missing libraries! Error: {e}")
+    st.error("Please ensure all packages from requirements.txt are installed.")
+    LANGCHAIN_AVAILABLE = False
 
 # Page Config
 st.set_page_config(page_title="Stock Portfolio Analytics", layout="wide")
@@ -49,10 +52,20 @@ except Exception as e:
 # Sidebar Configuration
 # -----------------------------------------------------------------------------
 st.sidebar.header("AI Configuration")
-llm_provider = st.sidebar.selectbox("Select LLM Provider", ["OpenAI", "Ollama (Local)"])
+llm_provider = st.sidebar.selectbox("Select LLM Provider", ["Google Gemini", "OpenAI", "Ollama (Local)"])
 
 llm = None
-if llm_provider == "OpenAI":
+if llm_provider == "Google Gemini":
+    api_key = st.sidebar.text_input("Gemini API Key", type="password", 
+                                     help="Get your key from: https://makersuite.google.com/app/apikey")
+    model = st.sidebar.selectbox("Model", ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"], index=0)
+    if api_key:
+        try:
+            llm = ChatGoogleGenerativeAI(model=model, temperature=0, api_key=api_key)
+            st.sidebar.success(f"✅ {model} initialized")
+        except Exception as e:
+            st.sidebar.error(f"Failed to initialize Gemini: {e}")
+elif llm_provider == "OpenAI":
     api_key = st.sidebar.text_input("OpenAI API Key", type="password")
     if api_key:
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=api_key)
@@ -79,14 +92,14 @@ with col1:
     st.subheader("📊 Market Overview")
     st.markdown("### Recent Trades")
     try:
-        query = "SELECT * FROM trades LIMIT 500"
+        query = "SELECT * FROM final_stocks LIMIT 500"
         df_trades = pd.read_sql(query, engine)
         
         if not df_trades.empty:
             st.dataframe(df_trades, use_container_width=True, height=300)
             
-            if 'quantity' in df_trades.columns and 'price' in df_trades.columns:
-                fig = px.scatter(df_trades, x='quantity', y='price', color='transaction_type', 
+            if 'quantity' in df_trades.columns and 'stock_price' in df_trades.columns:
+                fig = px.scatter(df_trades, x='quantity', y='stock_price', color='transaction_type', 
                                  title="Trade Price vs Quantity")
                 st.plotly_chart(fig, use_container_width=True)
         else:
@@ -102,16 +115,30 @@ with col2:
     user_query = st.text_area("Question:", placeholder="e.g., What is the total trading volume by sector?")
     
     if st.button("Analyze"):
-        if llm:
+        if llm and LANGCHAIN_AVAILABLE:
             with st.spinner("Analyzing..."):
                 try:
-                    write_query = create_sql_query_chain(llm, db)
-                    sql_query = write_query.invoke({"question": user_query})
+                    # Get table information
+                    table_info = db.get_table_info()
+                    
+                    # Create prompt with table schema
+                    prompt = f"""You are a SQL expert. Given the following database schema:
+
+{table_info}
+
+Generate a SQL query to answer the following question. Return only the SQL query without any markdown formatting or explanations.
+
+Question: {user_query}
+
+SQL Query:"""
+                    
+                    # Generate SQL using LLM
+                    sql_query = llm.invoke(prompt).content if hasattr(llm.invoke(prompt), 'content') else str(llm.invoke(prompt))
                     
                     st.markdown("**Generated SQL:**")
                     st.code(sql_query, language="sql")
                     
-                    cleaned_sql = sql_query.strip().replace('```sql', '').replace('```', '')
+                    cleaned_sql = sql_query.strip().replace('```sql', '').replace('```', '').strip()
                     
                     if cleaned_sql.lower().startswith("select"):
                         result_df = pd.read_sql(cleaned_sql, engine)
@@ -124,5 +151,6 @@ with col2:
                         
                 except Exception as e:
                     st.error(f"Analysis failed: {e}")
+                    st.error(f"Details: {str(e)}")
         else:
             st.warning("Please configure the LLM in the sidebar first.")

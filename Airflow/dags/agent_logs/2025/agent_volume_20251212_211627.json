@@ -1,0 +1,142 @@
+{
+  "execution_date": "2025-12-12T21:14:09.188954+00:00",
+  "dag_run_id": "manual__2025-12-12T21:14:09.188954+00:00",
+  "total_queries": 15,
+  "queries": [
+    {
+      "query_number": 1,
+      "user_query": "What was the total trading volume for technology stocks last month?",
+      "sql_generated": "WITH latest_date AS (\n    SELECT\n        MAX(year) AS max_year,\n        MAX(month) AS max_month\n    FROM final_stocks\n),\ntarget_month_info AS (\n    SELECT\n        CASE\n            WHEN max_month = 1 THEN 12\n            ELSE max_month - 1\n        END AS target_month,\n        CASE\n            WHEN max_month = 1 THEN max_year - 1\n            ELSE max_year\n        END AS target_year\n    FROM latest_date\n)\nSELECT\n    SUM(fs.quantity * fs.stock_price)\nFROM\n    final_stocks AS fs\nJOIN\n    target_month_info AS tmi\nON\n    fs.year = tmi.target_year AND fs.month = tmi.target_month\nWHERE\n    fs.sector = 2;",
+      "row_count": 0,
+      "agent_response": "Non-SELECT query generated",
+      "status": "success",
+      "timestamp": "2025-12-12T21:14:32.912632"
+    },
+    {
+      "query_number": 2,
+      "user_query": "Show me the top 10 customers by trade amount",
+      "sql_generated": "SELECT\n  customer_id,\n  SUM(quantity * stock_price) AS total_trade_amount\nFROM final_stocks\nGROUP BY\n  customer_id\nORDER BY\n  total_trade_amount DESC\nLIMIT 10;",
+      "row_count": 10,
+      "agent_response": "[{'customer_id': 4747, 'total_trade_amount': 13858361.007146865}, {'customer_id': 4955, 'total_trade_amount': 3476883.7320158035}, {'customer_id': 3588, 'total_trade_amount': 831979.5288817823}, {'customer_id': 193, 'total_trade_amount': 759309.0588000151}, {'customer_id': 2101, 'total_trade_amount': 688241.9134320323}, {'customer_id': 1899, 'total_trade_amount': 683711.0020213233}, {'customer_id': 1513, 'total_trade_amount': 667169.8829695238}, {'customer_id': 3933, 'total_trade_amount': 665498",
+      "status": "success",
+      "timestamp": "2025-12-12T21:14:35.854142"
+    },
+    {
+      "query_number": 3,
+      "user_query": "What is the average trade size for retail accounts?",
+      "sql_generated": "SELECT AVG(average_trade_size) FROM final_stocks WHERE account_type = 0",
+      "row_count": 1,
+      "agent_response": "[{'avg': 214.64563440860218}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:14:38.366224"
+    },
+    {
+      "query_number": 4,
+      "user_query": "How many transactions occurred on weekends?",
+      "sql_generated": "SELECT COUNT(transaction_id) FROM final_stocks WHERE is_weekend = 1",
+      "row_count": 1,
+      "agent_response": "[{'count': 0}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:14:40.191343"
+    },
+    {
+      "query_number": 5,
+      "user_query": "Which stock sector has the highest liquidity?",
+      "sql_generated": "SELECT sector\nFROM final_stocks\nGROUP BY sector\nORDER BY MAX(liquidity_tier) DESC\nLIMIT 1",
+      "row_count": 1,
+      "agent_response": "[{'sector': 1}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:14:42.150106"
+    },
+    {
+      "query_number": 6,
+      "user_query": "Show me all transactions for customer with ID 4747",
+      "sql_generated": "SELECT * FROM final_stocks WHERE customer_id = 4747",
+      "row_count": 99,
+      "agent_response": "[{'transaction_id': 7488, 'timestamp': 376, 'customer_id': 4747, 'stock_ticker': 10, 'transaction_type': 1, 'quantity': 13, 'average_trade_size': 202.27, 'cumulative_portfolio_value': 9333141.75, 'date': 376, 'customer_key': 4747, 'account_type': 0, 'avg_trade_size_baseline': 57.23133521042849, 'stock_key': 7, 'company_name': 10, 'liquidity_tier': 2, 'sector': 2, 'industry': 2, 'date_key': 20240611, 'day': 11, 'month': 6, 'month_name': 5, 'quarter': 2, 'year': 2024, 'day_of_week': 2, 'day_name':",
+      "status": "success",
+      "timestamp": "2025-12-12T21:14:44.053946"
+    },
+    {
+      "query_number": 7,
+      "user_query": "What are the total buy versus sell transaction amounts?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/usage?tab=rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-2.5-flash\\nPlease retry in 41.356106775s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.5-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '41s'}]}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:15:18.749699"
+    },
+    {
+      "query_number": 8,
+      "user_query": "Which day of the week has the most trading activity?",
+      "sql_generated": "SELECT day_name\nFROM final_stocks\nGROUP BY day_name\nORDER BY COUNT(transaction_id) DESC\nLIMIT 1",
+      "row_count": 1,
+      "agent_response": "[{'day_name': 2}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:15:21.367642"
+    },
+    {
+      "query_number": 9,
+      "user_query": "Show me all stocks in the high liquidity tier",
+      "sql_generated": "SELECT * FROM final_stocks WHERE liquidity_tier = 1",
+      "row_count": 308,
+      "agent_response": "[{'transaction_id': 6253, 'timestamp': 313, 'customer_id': 1006, 'stock_ticker': 2, 'transaction_type': 0, 'quantity': 477, 'average_trade_size': 337.0, 'cumulative_portfolio_value': 192326.67, 'date': 313, 'customer_key': 1006, 'account_type': 0, 'avg_trade_size_baseline': 68.87757332184913, 'stock_key': 6, 'company_name': 2, 'liquidity_tier': 1, 'sector': 2, 'industry': 2, 'date_key': 20240314, 'day': 14, 'month': 3, 'month_name': 2, 'quarter': 1, 'year': 2024, 'day_of_week': 4, 'day_name': 3,",
+      "status": "success",
+      "timestamp": "2025-12-12T21:15:25.911396"
+    },
+    {
+      "query_number": 10,
+      "user_query": "What is the transaction count by customer account type?",
+      "sql_generated": "SELECT\n  account_type,\n  COUNT(transaction_id) AS transaction_count\nFROM final_stocks\nGROUP BY\n  account_type;",
+      "row_count": 2,
+      "agent_response": "[{'account_type': 0, 'transaction_count': 465}, {'account_type': 1, 'transaction_count': 35}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:15:27.766842"
+    },
+    {
+      "query_number": 11,
+      "user_query": "Which stock ticker had the highest trade volume?",
+      "sql_generated": "SELECT stock_ticker\nFROM final_stocks\nGROUP BY stock_ticker\nORDER BY SUM(quantity) DESC\nLIMIT 1",
+      "row_count": 1,
+      "agent_response": "[{'stock_ticker': 2}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:15:29.704352"
+    },
+    {
+      "query_number": 12,
+      "user_query": "What percentage of trades happened during holidays?",
+      "sql_generated": "SELECT\n  SUM(CASE WHEN is_holiday = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(transaction_id)\nFROM final_stocks;",
+      "row_count": 1,
+      "agent_response": "[{'?column?': 2.2}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:15:32.968194"
+    },
+    {
+      "query_number": 13,
+      "user_query": "Show me the average stock price by sector",
+      "sql_generated": "SELECT sector, AVG(stock_price) FROM final_stocks GROUP BY sector",
+      "row_count": 5,
+      "agent_response": "[{'sector': 0, 'avg': 204.10176315663176}, {'sector': 1, 'avg': 245.84550923239448}, {'sector': 3, 'avg': 485.6957699273362}, {'sector': 4, 'avg': 142.32121083592165}, {'sector': 2, 'avg': 638.0013248855718}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:15:35.286949"
+    },
+    {
+      "query_number": 14,
+      "user_query": "How many unique customers made transactions?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/usage?tab=rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-2.5-flash\\nPlease retry in 47.979524985s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.5-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '47s'}]}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:16:12.112919"
+    },
+    {
+      "query_number": 15,
+      "user_query": "What is the total trade amount by transaction type?",
+      "sql_generated": "SELECT\n  transaction_type,\n  SUM(quantity * stock_price) AS total_trade_amount\nFROM final_stocks\nGROUP BY\n  transaction_type;",
+      "row_count": 2,
+      "agent_response": "[{'transaction_type': 0, 'total_trade_amount': 20181731.794580217}, {'transaction_type': 1, 'total_trade_amount': 10996704.954797523}]",
+      "status": "success",
+      "timestamp": "2025-12-12T21:16:21.862418"
+    }
+  ]
+}

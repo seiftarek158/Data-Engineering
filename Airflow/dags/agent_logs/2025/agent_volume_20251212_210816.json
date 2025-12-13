@@ -1,0 +1,142 @@
+{
+  "execution_date": "2025-12-12T21:02:44.207988+00:00",
+  "dag_run_id": "manual__2025-12-12T21:02:44.207988+00:00",
+  "total_queries": 15,
+  "queries": [
+    {
+      "query_number": 1,
+      "user_query": "What was the total trading volume for technology stocks last month?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:09.834796"
+    },
+    {
+      "query_number": 2,
+      "user_query": "Show me the top 10 customers by trade amount",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:09.932379"
+    },
+    {
+      "query_number": 3,
+      "user_query": "What is the average trade size for retail accounts?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.038663"
+    },
+    {
+      "query_number": 4,
+      "user_query": "How many transactions occurred on weekends?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.140782"
+    },
+    {
+      "query_number": 5,
+      "user_query": "Which stock sector has the highest liquidity?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.245691"
+    },
+    {
+      "query_number": 6,
+      "user_query": "Show me all transactions for customer with ID 4747",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.340536"
+    },
+    {
+      "query_number": 7,
+      "user_query": "What are the total buy versus sell transaction amounts?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.445579"
+    },
+    {
+      "query_number": 8,
+      "user_query": "Which day of the week has the most trading activity?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.568410"
+    },
+    {
+      "query_number": 9,
+      "user_query": "Show me all stocks in the high liquidity tier",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.669414"
+    },
+    {
+      "query_number": 10,
+      "user_query": "What is the transaction count by customer account type?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.782327"
+    },
+    {
+      "query_number": 11,
+      "user_query": "Which stock ticker had the highest trade volume?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.885659"
+    },
+    {
+      "query_number": 12,
+      "user_query": "What percentage of trades happened during holidays?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:10.981323"
+    },
+    {
+      "query_number": 13,
+      "user_query": "Show me the average stock price by sector",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:11.076944"
+    },
+    {
+      "query_number": 14,
+      "user_query": "How many unique customers made transactions?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:11.182827"
+    },
+    {
+      "query_number": 15,
+      "user_query": "What is the total trade amount by transaction type?",
+      "sql_generated": "ERROR",
+      "row_count": 0,
+      "agent_response": "Error: Error calling model 'gemini-1.5-flash' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.', 'status': 'NOT_FOUND'}}",
+      "status": "failed",
+      "timestamp": "2025-12-12T21:08:11.284213"
+    }
+  ]
+}

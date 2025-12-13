@@ -1,0 +1,15 @@
+What was the total trading volume for technology stocks last month?
+Show me the top 10 customers by trade amount
+What is the average trade size for retail accounts?
+How many transactions occurred on weekends?
+Which stock sector has the highest liquidity?
+Show me all transactions for customer with ID 4747
+What are the total buy versus sell transaction amounts?
+Which day of the week has the most trading activity?
+Show me all stocks in the high liquidity tier
+What is the transaction count by customer account type?
+Which stock ticker had the highest trade volume?
+What percentage of trades happened during holidays?
+Show me the average stock price by sector
+How many unique customers made transactions?
+What is the total trade amount by transaction type?
