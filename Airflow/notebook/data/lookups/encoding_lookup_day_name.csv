@@ -1,6 +1,7 @@
-encoded_value,original_value
-0,Monday
-1,Tuesday
-2,Wednesday
-3,Thursday
-4,Friday
+Column Name,Original Value,Encoded Column
+day_name,Friday,day_Friday
+day_name,Monday,day_Monday
+day_name,Thursday,day_Thursday
+day_name,Tuesday,day_Tuesday
+day_name,Wednesday,day_Wednesday
+day_name,of_week,day_of_week

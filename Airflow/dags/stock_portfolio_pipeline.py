@@ -55,7 +55,7 @@ from dags.stage_6_tasks import (
 default_args = {
     'owner': 'data_engineering_team', 
     'depends_on_past': False, 
-    'start_date': "<yesterday>", # change to use days ago 
+    'start_date': datetime(2025, 12, 13), # Start one day ago
     'email_on_retry': False, 
     'retries': 1 
 }

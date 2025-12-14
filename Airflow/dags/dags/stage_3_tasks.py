@@ -10,6 +10,63 @@ This module contains all task functions for Stage 3 of the pipeline:
 import os
 
 
+def encode_row(row, encoding_lookups):
+    """
+    Encodes a single row/record with the same logic as encode_data but for individual rows.
+    
+    Parameters:
+    -----------
+    row : dict
+        A single record/row to encode
+    encoding_lookups : dict
+        Dictionary containing all encoding mappings:
+        - 'stock_ticker': dict mapping ticker names to encoded values
+        - 'transaction_type': dict mapping transaction types to encoded values
+        - 'customer_account_type': dict mapping account types to encoded values
+        - 'stock_sector': dict mapping sectors to encoded values
+        - 'stock_industry': dict mapping industries to encoded values
+        - 'day_names': list of all possible day names
+    
+    Returns:
+    --------
+    dict
+        The encoded row with all transformations applied
+    """
+    encoded_row = row.copy()
+    
+    # Label Encoding - Modify values directly using lookup dictionaries
+    if 'stock_ticker' in encoded_row and encoded_row['stock_ticker'] is not None:
+        encoded_row['stock_ticker'] = encoding_lookups['stock_ticker'].get(row['stock_ticker'], -1)
+    
+    if 'transaction_type' in encoded_row and encoded_row['transaction_type'] is not None:
+        encoded_row['transaction_type'] = encoding_lookups['transaction_type'].get(row['transaction_type'], -1)
+    
+    if 'customer_account_type' in encoded_row and encoded_row['customer_account_type'] is not None:
+        encoded_row['customer_account_type'] = encoding_lookups['customer_account_type'].get(row['customer_account_type'], -1)
+    
+    if 'stock_sector' in encoded_row and encoded_row['stock_sector'] is not None:
+        encoded_row['stock_sector'] = encoding_lookups['stock_sector'].get(row['stock_sector'], -1)
+    
+    if 'stock_industry' in encoded_row and encoded_row['stock_industry'] is not None:
+        encoded_row['stock_industry'] = encoding_lookups['stock_industry'].get(row['stock_industry'], -1)
+    
+    # One-Hot Encoding - Create new columns and remove original
+    if 'day_name' in encoded_row and encoded_row['day_name'] is not None:
+        day_value = encoded_row['day_name']
+        for day in encoding_lookups['day_names']:
+            encoded_row[f'day_{day}'] = 1 if day_value == day else 0
+        del encoded_row['day_name']  # Remove original column
+    
+    # Boolean to Binary - Modify values directly
+    if 'is_weekend' in encoded_row:
+        encoded_row['is_weekend'] = int(encoded_row['is_weekend']) if encoded_row['is_weekend'] is not None else 0
+    
+    if 'is_holiday' in encoded_row:
+        encoded_row['is_holiday'] = int(encoded_row['is_holiday']) if encoded_row['is_holiday'] is not None else 0
+    
+    return encoded_row
+
+
 def consume_and_process_stream(**context):
     """Consume data from Kafka, apply encoding, save processed data"""
     import pandas as pd
@@ -22,21 +79,41 @@ def consume_and_process_stream(**context):
     
     data_path = "/opt/airflow/notebook/data/"
     lookups_path = os.path.join(data_path, "lookups")
+    master_lookup_file = os.path.join(lookups_path, "master_encoding_lookup.csv")
     output_file = os.path.join(data_path, "FINAL_STOCKS.csv")
     
-    print(f"Loading lookup tables from: {lookups_path}")
+    print(f"Loading encoding lookups from master lookup table...")
     
-    lookup_files = [f for f in os.listdir(lookups_path) if f.startswith("encoding_lookup_") and f.endswith(".csv")]
+    if not os.path.exists(master_lookup_file):
+        raise FileNotFoundError(f"Master lookup file not found: {master_lookup_file}")
     
-    if not lookup_files:
-        raise FileNotFoundError(f"No encoding lookup files found in {lookups_path}")
+    lookup_df = pd.read_csv(master_lookup_file)
     
-    lookups = {}
-    for file in lookup_files:
-        col_name = file.replace("encoding_lookup_", "").replace(".csv", "")
-        df = pd.read_csv(os.path.join(lookups_path, file))
-        lookups[col_name] = dict(zip(df.original_value, df.encoded_value))
-        print(f"Loaded lookup for: {col_name} ({len(lookups[col_name])} mappings)")
+    encoding_lookups = {}
+    
+    # Create lookup dictionaries for label encoding
+    label_encoded = lookup_df[lookup_df['Encoded Value'].notna()]
+    
+    for col_name in ['stock_ticker', 'transaction_type', 'customer_account_type', 'stock_sector', 'stock_industry']:
+        col_data = label_encoded[label_encoded['Column Name'] == col_name]
+        encoding_lookups[col_name] = dict(zip(
+            col_data['Original Value'],
+            col_data['Encoded Value'].astype(int)
+        ))
+    
+    # Create lists for one-hot encoding
+    onehot_encoded = lookup_df[lookup_df['Encoded Column'].notna() & (lookup_df['Encoded Column'] != '')]
+    encoding_lookups['day_names'] = sorted(
+        onehot_encoded[onehot_encoded['Column Name'] == 'day_name']['Original Value'].tolist()
+    )
+    
+    print("✓ Encoding lookups loaded successfully")
+    print(f"  - Label encoded: stock_ticker ({len(encoding_lookups['stock_ticker'])}), "
+          f"transaction_type ({len(encoding_lookups['transaction_type'])}), "
+          f"customer_account_type ({len(encoding_lookups['customer_account_type'])}), "
+          f"stock_sector ({len(encoding_lookups['stock_sector'])}), "
+          f"stock_industry ({len(encoding_lookups['stock_industry'])})")
+    print(f"  - One-hot encoded: day_names ({len(encoding_lookups['day_names'])})")
     
     print("Connecting to Kafka consumer...")
     consumer = KafkaConsumer(
@@ -65,11 +142,9 @@ def consume_and_process_stream(**context):
         
         record = message.value
         
-        for col, lookup_map in lookups.items():
-            if col in record and record[col] in lookup_map:
-                record[col] = lookup_map[record[col]]
-        
-        processed_records.append(record)
+        # Apply encoding using the encode_row function
+        encoded_record = encode_row(record, encoding_lookups)
+        processed_records.append(encoded_record)
         
         if message_count % 100 == 0:
             print(f"Processed {message_count} messages...")
