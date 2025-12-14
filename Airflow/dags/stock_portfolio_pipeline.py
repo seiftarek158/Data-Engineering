@@ -183,7 +183,7 @@ with DAG(
             task_id='run_spark_analytics',
             python_callable=run_spark_analytics,
             op_kwargs={
-                'input_path': '/opt/airflow/notebook/data/FULL_STOCKS.csv'
+                'input_path': '/opt/airflow/notebook/data/FINAL_STOCKS.csv'
             },
             provide_context=True,
         )
@@ -200,7 +200,52 @@ with DAG(
             python_callable=prepare_visualization,
             provide_context=True,
         )
-    
+
+        start_visualization_service = BashOperator(
+            task_id='start_visualization_service',
+            bash_command='''
+            set -e  # Exit on any error
+            
+            echo "============================================"
+            echo "Verifying Visualization Dashboard Status"
+            echo "============================================"
+            
+            # Wait for dashboard to be ready
+            echo ""
+            echo "Checking if visualization dashboard is accessible..."
+            max_attempts=30
+            attempt=0
+            
+            while [ $attempt -lt $max_attempts ]; do
+                echo "Attempt $((attempt + 1))/$max_attempts: Checking dashboard health..."
+                
+                if curl -f -s http://streamlit-visualization-dashboard:8501/_stcore/health > /dev/null 2>&1; then
+                    echo ""
+                    echo "✓ SUCCESS: Visualization dashboard is running and healthy!"
+                    echo "✓ Dashboard URL: http://localhost:8502"
+                    echo "✓ Data has been prepared in Stage 5 Task 1"
+                   echo "============================================"
+                    exit 0
+                fi
+                
+                attempt=$((attempt + 1))
+                sleep 2
+            done
+            
+            # If we get here, dashboard is not accessible
+            echo ""
+            echo "✗ ERROR: Visualization dashboard is not accessible"
+            echo "✗ Attempted to reach: http://streamlit-visualization-dashboard:8501"
+            echo ""
+            echo "Troubleshooting steps:"
+            echo "1. Check if container is running: docker ps | grep streamlit-visualization"
+            echo "2. Check container logs: docker logs streamlit-visualization-dashboard"
+            echo "3. Ensure container started with: docker compose up -d"
+            echo "============================================"
+            exit 1
+            ''',
+        )
+        start_visualization_service >> prepare_visualization
     # ========================================================================
     # STAGE 6: AI AGENT QUERY PROCESSING
     # ========================================================================

@@ -400,7 +400,7 @@ services:
   # AI Agent Dashboard (Stage 6) - Port 8501
   dashboard:
     build:
-      context: ./dashboard
+      context: ./dataagent
       dockerfile: Dockerfile
     container_name: streamlit-ai-agent-dashboard
     ports:

@@ -3,7 +3,7 @@ Stage 5: Visualization Preparation Task Functions
 ==================================================
 
 This module contains all task functions for Stage 5 of the pipeline:
-- prepare_visualization: Decode data and create visualization-ready tables
+- prepare_visualization: Create 8 specific visualization queries using FINAL_STOCKS.csv
 """
 
 import os
@@ -11,13 +11,13 @@ from datetime import datetime
 
 
 def prepare_visualization(**context):
-    """Decode data and create visualization-ready tables"""
+    """Create 8 specific visualization queries using FINAL_STOCKS.csv with master lookup decoding"""
     import pandas as pd
     import json
     from sqlalchemy import create_engine
 
     print("="*70)
-    print("PREPARING DATA FOR VISUALIZATION")
+    print("PREPARING DATA FOR VISUALIZATION - 8 SPECIFIC QUERIES")
     print("="*70)
 
     db_host = os.getenv('DB_HOST', 'pgdatabase')
@@ -34,171 +34,244 @@ def prepare_visualization(**context):
 
     print(f"\n✓ Connected to database: {db_name}")
 
-    print("\n[1/5] Loading encoding lookup tables...")
-
+    # Load master encoding lookup
+    print("\n[1/9] Loading master encoding lookup...")
     master_lookup_path = os.path.join(lookups_path, "master_encoding_lookup.json")
     with open(master_lookup_path, 'r') as f:
         master_lookup = json.load(f)
 
+    # Convert string keys to int where needed
     decoded_lookup = {}
     for col, mapping in master_lookup.items():
         decoded_lookup[col] = {int(k) if k.isdigit() else k: v for k, v in mapping.items()}
 
-    print(f"✓ Loaded {len(decoded_lookup)} lookup tables")
+    print(f"✓ Loaded {len(decoded_lookup)} lookup mappings")
 
-    print("\n[2/5] Decoding Stage 4 analytics tables...")
+    # Load FINAL_STOCKS.csv
+    print("\n[2/9] Loading FINAL_STOCKS.csv...")
+    encoded_data_path = os.path.join(data_path, "FINAL_STOCKS.csv")
+    df = pd.read_csv(encoded_data_path)
+    print(f"✓ Loaded {len(df)} records from FINAL_STOCKS.csv")
 
-    try:
-        df_spark1 = pd.read_sql('SELECT * FROM spark_analytics_1', con=engine)
-        df_spark1['stock_ticker'] = df_spark1['stock_ticker'].map(decoded_lookup.get('stock_ticker', {}))
-        df_spark1.to_sql('viz_volume_by_ticker', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Decoded spark_analytics_1 → viz_volume_by_ticker")
-    except Exception as e:
-        print(f"  ✗ Could not decode spark_analytics_1: {e}")
+    # Decode all categorical columns using master lookup
+    print("\n[3/9] Decoding categorical columns...")
+    df_decoded = df.copy()
+    
+    # Decode each column
+    categorical_mappings = {
+        'stock_ticker': 'stock_ticker',
+        'transaction_type': 'transaction_type',
+        'account_type': 'account_type',
+        'company_name': 'company_name',
+        'liquidity_tier': 'liquidity_tier',
+        'sector': 'sector',
+        'industry': 'industry',
+        'day_name': 'day_name',
+        'month_name': 'month_name',
+        'is_weekend': 'is_weekend',
+        'is_holiday': 'is_holiday'
+    }
+    
+    for df_col, lookup_key in categorical_mappings.items():
+        if df_col in df_decoded.columns and lookup_key in decoded_lookup:
+            df_decoded[df_col] = df_decoded[df_col].map(decoded_lookup[lookup_key])
+            print(f"  ✓ Decoded: {df_col}")
 
-    try:
-        df_spark2 = pd.read_sql('SELECT * FROM spark_analytics_2', con=engine)
-        df_spark2['stock_sector'] = df_spark2['stock_sector'].map(decoded_lookup.get('sector', {}))
-        df_spark2 = df_spark2.rename(columns={'stock_sector': 'sector'})
-        df_spark2.to_sql('viz_avg_price_by_sector', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Decoded spark_analytics_2 → viz_avg_price_by_sector")
-    except Exception as e:
-        print(f"  ✗ Could not decode spark_analytics_2: {e}")
-
-    try:
-        df_spark3 = pd.read_sql('SELECT * FROM spark_analytics_3', con=engine)
-        df_spark3['transaction_type'] = df_spark3['transaction_type'].map(decoded_lookup.get('transaction_type', {}))
-        df_spark3.to_sql('viz_weekend_transactions', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Decoded spark_analytics_3 → viz_weekend_transactions")
-    except Exception as e:
-        print(f"  ✗ Could not decode spark_analytics_3: {e}")
-
-    try:
-        df_spark4 = pd.read_sql('SELECT * FROM spark_analytics_4', con=engine)
-        df_spark4.to_sql('viz_active_customers', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Copied spark_analytics_4 → viz_active_customers")
-    except Exception as e:
-        print(f"  ✗ Could not copy spark_analytics_4: {e}")
-
-    try:
-        df_spark5 = pd.read_sql('SELECT * FROM spark_analytics_5', con=engine)
-        df_spark5.to_sql('viz_trade_by_day', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Copied spark_analytics_5 → viz_trade_by_day")
-    except Exception as e:
-        print(f"  ✗ Could not copy spark_analytics_5: {e}")
-
-    try:
-        df_sql3 = pd.read_sql('SELECT * FROM spark_sql_3', con=engine)
-        df_sql3.to_sql('viz_holiday_comparison', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Copied spark_sql_3 → viz_holiday_comparison")
-    except Exception as e:
-        print(f"  ✗ Could not copy spark_sql_3: {e}")
-
-    try:
-        df_sql5 = pd.read_sql('SELECT * FROM spark_sql_5', con=engine)
-        df_sql5['stock_liquidity_tier'] = df_sql5['stock_liquidity_tier'].map(decoded_lookup.get('liquidity_tier', {}))
-        df_sql5['transaction_type'] = df_sql5['transaction_type'].map(decoded_lookup.get('transaction_type', {}))
-        df_sql5 = df_sql5.rename(columns={'stock_liquidity_tier': 'liquidity_tier'})
-        df_sql5.to_sql('viz_liquidity_by_transaction', con=engine, if_exists='replace', index=False)
-        print(f"  ✓ Decoded spark_sql_5 → viz_liquidity_by_transaction")
-    except Exception as e:
-        print(f"  ✗ Could not decode spark_sql_5: {e}")
-
-    print(f"\n✓ Decoded and saved Stage 4 analytics tables for dashboard use")
-
-    print("\n[3/5] Decoding main data table...")
-
-    encoded_data_path = os.path.join(data_path, "integrated_encoded_trades_data.csv")
-    df_encoded = pd.read_csv(encoded_data_path)
-    print(f"✓ Loaded encoded data: {len(df_encoded)} records")
-
-    df_decoded = df_encoded.copy()
-
-    categorical_cols = ['stock_ticker', 'transaction_type', 'account_type', 'company_name',
-                       'liquidity_tier', 'sector', 'industry', 'day_name', 'month_name',
-                       'is_weekend', 'is_holiday']
-
-    for col in categorical_cols:
-        if col in df_decoded.columns and col in decoded_lookup:
-            df_decoded[col] = df_decoded[col].map(decoded_lookup[col])
-            print(f"  • Decoded: {col}")
-
-    df_decoded.to_sql('visualization_main_data', con=engine, if_exists='replace', index=False)
-    print(f"✓ Saved decoded data to table: visualization_main_data")
-
-    print("\n[4/5] Creating additional visualization views...")
-
+    # Convert timestamp to datetime
+    df_decoded['timestamp'] = pd.to_datetime(df_decoded['timestamp'])
     df_decoded['date'] = pd.to_datetime(df_decoded['date'])
+    
+    print(f"✓ All categorical columns decoded successfully")
 
-    sector_time = df_decoded.groupby(['date', 'sector']).agg({
+    # Query 1: Trading Volume by Stock Ticker (from Spark Analytics 1)
+    print("\n[4/9] Creating Query 1: Trading Volume by Stock Ticker...")
+    print("  Using existing spark_analytics_1 from Stage 4...")
+    try:
+        viz_1 = pd.read_sql('SELECT * FROM spark_analytics_1', con=engine)
+        viz_1['stock_ticker'] = viz_1['stock_ticker'].map(decoded_lookup.get('stock_ticker', {}))
+        viz_1.to_sql('viz_trading_volume_by_ticker', con=engine, if_exists='replace', index=False)
+        print(f"  ✓ Decoded and created viz_trading_volume_by_ticker ({len(viz_1)} rows)")
+    except Exception as e:
+        print(f"  ⚠ Could not use spark_analytics_1, creating from scratch...")
+        viz_1 = df_decoded.groupby('stock_ticker').agg({
+            'quantity': 'sum',
+            'transaction_id': 'count'
+        }).reset_index()
+        viz_1.columns = ['stock_ticker', 'total_volume', 'transaction_count']
+        viz_1 = viz_1.sort_values('total_volume', ascending=False)
+        viz_1.to_sql('viz_trading_volume_by_ticker', con=engine, if_exists='replace', index=False)
+        print(f"  ✓ Created viz_trading_volume_by_ticker ({len(viz_1)} rows)")
+
+    # Query 2: Stock Price Trends by Sector (from Spark Analytics 2 + time dimension)
+    print("\n[5/9] Creating Query 2: Stock Price Trends by Sector...")
+    print("  Using FINAL_STOCKS.csv for time-series data...")
+    viz_2 = df_decoded.groupby(['date', 'sector']).agg({
         'stock_price': 'mean',
         'quantity': 'sum'
     }).reset_index()
-    sector_time.columns = ['date', 'sector', 'avg_stock_price', 'total_volume']
-    sector_time.to_sql('viz_sector_time', con=engine, if_exists='replace', index=False)
-   
-    liquidity_time = df_decoded.groupby(['date', 'liquidity_tier']).agg({
-        'quantity': 'sum'
-    }).reset_index()
-    liquidity_time.columns = ['date', 'liquidity_tier', 'total_volume']
-    liquidity_time.to_sql('viz_liquidity_time', con=engine, if_exists='replace', index=False)
-   
-    customer_summary = df_decoded.groupby(['customer_id', 'account_type']).agg({
+    viz_2.columns = ['date', 'sector', 'avg_stock_price', 'total_volume']
+    viz_2 = viz_2.sort_values(['sector', 'date'])
+    viz_2.to_sql('viz_stock_price_trends_by_sector', con=engine, if_exists='replace', index=False)
+    print(f"  ✓ Created viz_stock_price_trends_by_sector ({len(viz_2)} rows)")
+
+    # Query 3: Buy vs Sell Transactions (NOT using Spark)
+    print("\n[6/9] Creating Query 3: Buy vs Sell Transactions...")
+    viz_3 = df_decoded.groupby('transaction_type').agg({
         'transaction_id': 'count',
+        'quantity': 'sum',
+        'stock_price': 'mean'
+    }).reset_index()
+    viz_3.columns = ['transaction_type', 'transaction_count', 'total_volume', 'avg_price']
+    viz_3.to_sql('viz_buy_vs_sell_transactions', con=engine, if_exists='replace', index=False)
+    print(f"  ✓ Created viz_buy_vs_sell_transactions ({len(viz_3)} rows)")
+
+    # Query 4: Trading Activity by Day of Week (from Spark Analytics 5)
+    print("\n[7/9] Creating Query 4: Trading Activity by Day of Week...")
+    print("  Using existing spark_analytics_5 from Stage 4...")
+    try:
+        viz_4 = pd.read_sql('SELECT * FROM spark_analytics_5', con=engine)
+        viz_4 = viz_4.rename(columns={'day': 'day_name'})
+        # Add additional metrics from FINAL_STOCKS
+        day_metrics = df_decoded.groupby('day_name').agg({
+            'transaction_id': 'count',
+            'quantity': 'sum',
+            'stock_price': 'mean'
+        }).reset_index()
+        day_metrics.columns = ['day_name', 'transaction_count', 'total_volume', 'avg_price']
+        viz_4 = viz_4.merge(day_metrics, on='day_name', how='left')
+        
+        # Order days properly
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+        viz_4['day_order'] = viz_4['day_name'].map({day: i for i, day in enumerate(day_order)})
+        viz_4 = viz_4.sort_values('day_order').drop('day_order', axis=1)
+        viz_4.to_sql('viz_trading_activity_by_day', con=engine, if_exists='replace', index=False)
+        print(f"  ✓ Enhanced and created viz_trading_activity_by_day ({len(viz_4)} rows)")
+    except Exception as e:
+        print(f"  ⚠ Could not use spark_analytics_5, creating from scratch...")
+        viz_4 = df_decoded.groupby('day_name').agg({
+            'transaction_id': 'count',
+            'quantity': 'sum',
+            'stock_price': 'mean'
+        }).reset_index()
+        viz_4.columns = ['day_name', 'transaction_count', 'total_volume', 'avg_price']
+        
+        # Order days properly
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+        viz_4['day_order'] = viz_4['day_name'].map({day: i for i, day in enumerate(day_order)})
+        viz_4 = viz_4.sort_values('day_order').drop('day_order', axis=1)
+        viz_4.to_sql('viz_trading_activity_by_day', con=engine, if_exists='replace', index=False)
+        print(f"  ✓ Created viz_trading_activity_by_day ({len(viz_4)} rows)")
+
+    # Query 5: Customer Transaction Distribution (enhanced with Spark Analytics 4)
+    print("\n[8/9] Creating Query 5: Customer Transaction Distribution...")
+    print("  Using FINAL_STOCKS.csv with insights from spark_analytics_4...")
+    viz_5 = df_decoded.groupby('customer_id').agg({
+        'transaction_id': 'count',
+        'quantity': 'sum',
         'cumulative_portfolio_value': 'max'
     }).reset_index()
-    customer_summary.columns = ['customer_id', 'account_type', 'transaction_count', 'portfolio_value']
-    customer_summary = customer_summary.sort_values('portfolio_value', ascending=False)
-    customer_summary.to_sql('viz_top_customers', con=engine, if_exists='replace', index=False)
-   
-    customer_dist = df_decoded.groupby('customer_id')['transaction_id'].count().reset_index()
-    customer_dist.columns = ['customer_id', 'transaction_count']
-    customer_dist.to_sql('viz_customer_distribution', con=engine, if_exists='replace', index=False)
-   
-    trans_summary = df_decoded.groupby('transaction_type').agg({
+    viz_5.columns = ['customer_id', 'transaction_count', 'total_volume', 'portfolio_value']
+    viz_5.to_sql('viz_customer_transaction_distribution', con=engine, if_exists='replace', index=False)
+    print(f"  ✓ Created viz_customer_transaction_distribution ({len(viz_5)} rows)")
+
+    # Query 6: Top 10 Customers by Trade Amount
+    print("\n[9/9] Creating Query 6: Top 10 Customers by Trade Amount...")
+    viz_6 = df_decoded.groupby(['customer_id', 'account_type']).agg({
+        'cumulative_portfolio_value': 'max',
         'transaction_id': 'count',
         'quantity': 'sum'
     }).reset_index()
-    trans_summary.columns = ['transaction_type', 'transaction_count', 'total_volume']
-    trans_summary.to_sql('viz_transaction_summary', con=engine, if_exists='replace', index=False)
+    viz_6.columns = ['customer_id', 'account_type', 'total_trade_amount', 'transaction_count', 'total_volume']
+    viz_6 = viz_6.sort_values('total_trade_amount', ascending=False).head(10)
+    viz_6.to_sql('viz_top_10_customers_by_trade_amount', con=engine, if_exists='replace', index=False)
+    print(f"  ✓ Created viz_top_10_customers_by_trade_amount ({len(viz_6)} rows)")
 
-    sector_comparison = df_decoded.groupby('sector').agg({
+    # Query 7: Sector Comparison Dashboard (grouped bar charts)
+    print("\n[10/11] Creating Query 7: Sector Comparison Dashboard...")
+    viz_7 = df_decoded.groupby('sector').agg({
         'transaction_id': 'count',
         'quantity': 'sum',
         'stock_price': 'mean',
         'cumulative_portfolio_value': 'sum'
     }).reset_index()
-    sector_comparison.columns = ['sector', 'transaction_count', 'total_volume',
-                                 'avg_stock_price', 'total_portfolio_value']
-    sector_comparison.to_sql('viz_sector_comparison', con=engine, if_exists='replace', index=False)
+    viz_7.columns = ['sector', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']
+    viz_7 = viz_7.sort_values('total_portfolio_value', ascending=False)
+    viz_7.to_sql('viz_sector_comparison_dashboard', con=engine, if_exists='replace', index=False)
+    print(f"  ✓ Created viz_sector_comparison_dashboard ({len(viz_7)} rows)")
 
-    print("\n[5/5] Creating visualization metadata...")
+    # Query 8: Holiday vs Non-Holiday Trading Patterns (from Spark SQL 3 + enhanced)
+    print("\n[11/11] Creating Query 8: Holiday vs Non-Holiday Trading Patterns...")
+    print("  Using existing spark_sql_3 from Stage 4 with enhancements...")
+    try:
+        viz_8_base = pd.read_sql('SELECT * FROM spark_sql_3', con=engine)
+        # Enhance with more metrics from FINAL_STOCKS
+        viz_8 = df_decoded.groupby('is_holiday').agg({
+            'transaction_id': 'count',
+            'quantity': 'sum',
+            'stock_price': 'mean',
+            'cumulative_portfolio_value': 'sum'
+        }).reset_index()
+        viz_8.columns = ['is_holiday', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']
+        
+        # Add percentage calculations
+        total_transactions = viz_8['transaction_count'].sum()
+        viz_8['transaction_percentage'] = (viz_8['transaction_count'] / total_transactions * 100).round(2)
+        
+        viz_8.to_sql('viz_holiday_vs_nonholiday_patterns', con=engine, if_exists='replace', index=False)
+        print(f"  ✓ Enhanced and created viz_holiday_vs_nonholiday_patterns ({len(viz_8)} rows)")
+    except Exception as e:
+        print(f"  ⚠ Could not use spark_sql_3, creating from scratch...")
+        viz_8 = df_decoded.groupby('is_holiday').agg({
+            'transaction_id': 'count',
+            'quantity': 'sum',
+            'stock_price': 'mean',
+            'cumulative_portfolio_value': 'sum'
+        }).reset_index()
+        viz_8.columns = ['is_holiday', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']
+        
+        # Add percentage calculations
+        total_transactions = viz_8['transaction_count'].sum()
+        viz_8['transaction_percentage'] = (viz_8['transaction_count'] / total_transactions * 100).round(2)
+        
+        viz_8.to_sql('viz_holiday_vs_nonholiday_patterns', con=engine, if_exists='replace', index=False)
+        print(f"  ✓ Created viz_holiday_vs_nonholiday_patterns ({len(viz_8)} rows)")
 
+    # Create visualization metadata
+    print("\n[12/12] Creating visualization metadata...")
     metadata = pd.DataFrame([
-        {'table_name': 'viz_volume_by_ticker', 'source': 'spark_analytics_1',
-         'description': 'Decoded stock ticker trading volumes', 'created_at': datetime.now()},
-        {'table_name': 'viz_avg_price_by_sector', 'source': 'spark_analytics_2',
-         'description': 'Decoded sector average stock prices', 'created_at': datetime.now()},
-        {'table_name': 'viz_weekend_transactions', 'source': 'spark_analytics_3',
-         'description': 'Weekend transaction type analysis', 'created_at': datetime.now()},
-        {'table_name': 'viz_active_customers', 'source': 'spark_analytics_4',
-         'description': 'Active customers with >10 transactions', 'created_at': datetime.now()},
-        {'table_name': 'viz_trade_by_day', 'source': 'spark_analytics_5',
-         'description': 'Trading activity by day of week', 'created_at': datetime.now()},
-        {'table_name': 'viz_sector_time', 'source': 'Stage 5',
-         'description': 'Sector stock prices over time', 'row_count': len(sector_time), 'created_at': datetime.now()},
-        {'table_name': 'viz_liquidity_time', 'source': 'Stage 5',
-         'description': 'Liquidity tier volumes over time', 'row_count': len(liquidity_time), 'created_at': datetime.now()},
-        {'table_name': 'viz_top_customers', 'source': 'Stage 5',
-         'description': 'Top customers by portfolio value', 'row_count': len(customer_summary), 'created_at': datetime.now()},
-        {'table_name': 'visualization_main_data', 'source': 'Stage 2',
-         'description': 'Decoded main data for detailed drill-down', 'row_count': len(df_decoded), 'created_at': datetime.now()}
+        {'table_name': 'viz_trading_volume_by_ticker', 'query_number': 1,
+         'description': 'Trading volume by stock ticker', 'row_count': len(viz_1), 'created_at': datetime.now()},
+        {'table_name': 'viz_stock_price_trends_by_sector', 'query_number': 2,
+         'description': 'Stock price trends by sector over time', 'row_count': len(viz_2), 'created_at': datetime.now()},
+        {'table_name': 'viz_buy_vs_sell_transactions', 'query_number': 3,
+         'description': 'Buy vs Sell transactions comparison', 'row_count': len(viz_3), 'created_at': datetime.now()},
+        {'table_name': 'viz_trading_activity_by_day', 'query_number': 4,
+         'description': 'Trading activity by day of week', 'row_count': len(viz_4), 'created_at': datetime.now()},
+        {'table_name': 'viz_customer_transaction_distribution', 'query_number': 5,
+         'description': 'Customer transaction distribution', 'row_count': len(viz_5), 'created_at': datetime.now()},
+        {'table_name': 'viz_top_10_customers_by_trade_amount', 'query_number': 6,
+         'description': 'Top 10 customers by trade amount', 'row_count': len(viz_6), 'created_at': datetime.now()},
+        {'table_name': 'viz_sector_comparison_dashboard', 'query_number': 7,
+         'description': 'Sector comparison dashboard (grouped bar charts)', 'row_count': len(viz_7), 'created_at': datetime.now()},
+        {'table_name': 'viz_holiday_vs_nonholiday_patterns', 'query_number': 8,
+         'description': 'Holiday vs Non-Holiday trading patterns', 'row_count': len(viz_8), 'created_at': datetime.now()}
     ])
 
-    metadata.to_sql('visualization_metadata', con=engine, if_exists='replace', index=False)
-    print(f"✓ Created visualization_metadata table with {len(metadata)} entries")
+    metadata.to_sql('viz_metadata', con=engine, if_exists='replace', index=False)
+    print(f"✓ Created viz_metadata table with {len(metadata)} queries")
 
-    print("✓ All visualization data prepared successfully")
+    print("\n" + "="*70)
+    print("✓ ALL 8 VISUALIZATION QUERIES CREATED SUCCESSFULLY")
+    print("="*70)
+    print("\nCreated Tables:")
+    print("  1. viz_trading_volume_by_ticker")
+    print("  2. viz_stock_price_trends_by_sector")
+    print("  3. viz_buy_vs_sell_transactions")
+    print("  4. viz_trading_activity_by_day")
+    print("  5. viz_customer_transaction_distribution")
+    print("  6. viz_top_10_customers_by_trade_amount")
+    print("  7. viz_sector_comparison_dashboard")
+    print("  8. viz_holiday_vs_nonholiday_patterns")
     print("="*70)
 
     engine.dispose()
