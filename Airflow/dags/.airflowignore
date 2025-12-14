@@ -1,0 +1,22 @@
+# Airflow will ignore files matching these patterns (REGEX, not glob)
+# This prevents non-DAG Python files from being parsed as DAGs
+
+dashboard\.py
+visualization_dashboard\.py
+
+# Ignore Stage files if they're not actual DAGs
+Stage_.*\.py
+
+# Ignore test/scratch files
+test_.*\.py
+scratch_.*\.py
+.*_test\.py
+
+# Ignore __pycache__
+__pycache__/
+.*\.pyc
+.*\.pyo
+
+# Ignore agent files
+agents/
+agent_logs/
