@@ -24,61 +24,8 @@ def prepare_streaming_data(**context):
     data_path = "/opt/airflow/notebook/data/"
     output_path = "notebook/data/"
     
-    dtp = pd.read_csv(os.path.join(data_path, "daily_trade_prices.csv"))
-    dc = pd.read_csv(os.path.join(data_path, "dim_customer.csv"))
-    dd = pd.read_csv(os.path.join(data_path, "dim_date.csv"))
-    ds = pd.read_csv(os.path.join(data_path, "dim_stock.csv"))
-    trades = pd.read_csv(os.path.join(data_path, "trades.csv"))
+    df = pd.read_csv(os.path.join(data_path, "integrated_data.csv"))
     
-    print(f"Loaded all datasets")
-    
-    # Fill nulls in dtp
-    trades["date_obj"] = pd.to_datetime(trades["timestamp"]).dt.date
-    estimated_prices = (
-        trades.groupby([trades["date_obj"], "stock_ticker"])
-        .apply(
-            lambda x: (x["cumulative_portfolio_value"] / x["quantity"] * x["quantity"]).sum()
-            / x["quantity"].sum()
-        )
-        .reset_index(name="price")
-    )
-    stock_prices_map = estimated_prices.set_index(["date_obj", "stock_ticker"])["price"]
-    
-    dtp["date_obj"] = pd.to_datetime(dtp["date"]).dt.date
-    for col in dtp.columns:
-        if col not in ["date", "date_obj"]:
-            missing_mask = dtp[col].isnull()
-            if missing_mask.any():
-                dates_for_mapping = dtp.loc[missing_mask, "date_obj"]
-                map_index = pd.MultiIndex.from_tuples(
-                    [(date, col) for date in dates_for_mapping],
-                    names=["date_obj", "stock_ticker"],
-                )
-                dtp.loc[missing_mask, col] = map_index.map(stock_prices_map)
-            
-            dtp[col] = dtp[col].fillna(method="ffill")
-    dtp = dtp.drop(columns=["date_obj"])
-    
-    # Convert to long format
-    dtp["date"] = pd.to_datetime(dtp["date"])
-    dtp_long = pd.melt(
-        dtp,
-        id_vars=["date"],
-        var_name="stock_ticker",
-        value_name="stock_price",
-    ).dropna()
-    
-    # Integrate data
-    trades["date"] = pd.to_datetime(trades["timestamp"]).dt.date
-    dtp_long["date"] = pd.to_datetime(dtp_long["date"]).dt.date
-    dd["date"] = pd.to_datetime(dd["date"]).dt.date
-    
-    merged_df = trades.merge(dc, on="customer_id", how="left")
-    merged_df = merged_df.merge(ds, on="stock_ticker", how="left")
-    merged_df = merged_df.merge(dd, on="date", how="left")
-    df = merged_df.merge(dtp_long, on=["date", "stock_ticker"], how="left")
-    
-    # Extract 5% random sample for streaming
     stream_df = df.sample(frac=0.05, random_state=42)
     batch_df = df.drop(stream_df.index)
     
