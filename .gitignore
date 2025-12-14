@@ -7,4 +7,4 @@ notebook/data/lookups/*
 Airflow/dags/__pycache__/*
 Airflow/dags/__pycache__/Stage_4.cpython-312.pyc
 Airflow/plugins/__pycache__/*
-
+*/.env
