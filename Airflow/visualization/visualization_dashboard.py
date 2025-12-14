@@ -35,6 +35,15 @@ st.set_page_config(
 # ============================================================================
 # DATABASE CONNECTION
 # ============================================================================
+# Environment variables are set by docker-compose.yaml (lines 430-435):
+# - DB_HOST=pgdatabase
+# - DB_USER=postgres
+# - DB_PASSWORD=postgres
+# - DB_PORT=5432
+# - DB_NAME=Trades_Database
+#
+# These are injected into the container at runtime, so no .env file is needed.
+# The container does NOT read from a .env file - it uses Docker environment variables.
 
 @st.cache_resource
 def get_database_engine():

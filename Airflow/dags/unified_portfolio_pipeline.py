@@ -12,7 +12,7 @@ Pipeline Stages:
 - Stage 4: Spark Analytics
 - Stage 6: AI Agent Query Processing
 
-Each stage is organized as a TaskGroup for better visualization and management.
+Each stage is organized as a TaskGroup as requested inn the bonus.
 """
 
 from datetime import datetime, timedelta
@@ -1670,8 +1670,67 @@ with DAG(
             provide_context=True,
         )
         
-        # Note: Visualization dashboard runs as separate Docker container on port 8502
-        # Access at http://localhost:8502
+        # Task 2: Verify Visualization Service is Ready
+        # Note: The visualization dashboard runs as a separate Docker container
+        # This task verifies the dashboard is accessible and data is prepared
+        verify_viz_service = BashOperator(
+            task_id='start_visualization_service',
+            bash_command='''
+            set -e  # Exit on any error
+            
+            echo "============================================"
+            echo "Verifying Visualization Dashboard Status"
+            echo "============================================"
+            
+            # Wait for dashboard to be ready
+            echo ""
+            echo "Checking if visualization dashboard is accessible..."
+            max_attempts=30
+            attempt=0
+            
+            while [ $attempt -lt $max_attempts ]; do
+                echo "Attempt $((attempt + 1))/$max_attempts: Checking dashboard health..."
+                
+                if curl -f -s http://streamlit-visualization-dashboard:8501/_stcore/health > /dev/null 2>&1; then
+                    echo ""
+                    echo "✓ SUCCESS: Visualization dashboard is running and healthy!"
+                    echo "✓ Dashboard URL: http://localhost:8502"
+                    echo "✓ Data has been prepared in Stage 5 Task 1"
+                    echo ""
+                    echo "The dashboard is now ready for use with all visualizations:"
+                    echo "  - Trading Volume by Stock Ticker"
+                    echo "  - Stock Price Trends by Sector"
+                    echo "  - Buy vs Sell Transactions"
+                    echo "  - Trading Activity by Day of Week"
+                    echo "  - Customer Transaction Distribution"
+                    echo "  - Top 10 Customers by Trade Amount"
+                    echo "  + Bonus visualizations"
+                   echo "============================================"
+                    exit 0
+                fi
+                
+                attempt=$((attempt + 1))
+                sleep 2
+            done
+            
+            # If we get here, dashboard is not accessible
+            echo ""
+            echo "✗ ERROR: Visualization dashboard is not accessible"
+            echo "✗ Attempted to reach: http://streamlit-visualization-dashboard:8501"
+            echo ""
+            echo "Troubleshooting steps:"
+            echo "1. Check if container is running: docker ps | grep streamlit-visualization"
+            echo "2. Check container logs: docker logs streamlit-visualization-dashboard"
+            echo "3. Ensure container started with: docker compose up -d"
+            echo "============================================"
+            exit 1
+            ''',
+        )
+        
+        # Task dependencies
+        task_prepare_viz >> verify_viz_service
+        
+        # Note: Visualization dashboard accessible at http://localhost:8502
 
     # ========================================================================
     # STAGE 6: AI AGENT QUERY PROCESSING
