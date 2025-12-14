@@ -24,7 +24,7 @@ def prepare_streaming_data(**context):
     data_path = "/opt/airflow/notebook/data/"
     output_path = "notebook/data/"
     
-    df = pd.read_csv(os.path.join(data_path, "integrated_cleaned_trades_data.csv"))
+    df = pd.read_csv(os.path.join(data_path, "integrated_data.csv"))
     
     # Extract 5% random sample for streaming
     stream_df = df.sample(frac=0.05, random_state=42)

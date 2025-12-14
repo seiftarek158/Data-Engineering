@@ -245,7 +245,7 @@ with DAG(
             exit 1
             ''',
         )
-        start_visualization_service >> prepare_visualization
+        prepare_visualization >> start_visualization_service
     # ========================================================================
     # STAGE 6: AI AGENT QUERY PROCESSING
     # ========================================================================

@@ -528,7 +528,7 @@ def consume_and_process_stream_task(**context):
     for file in lookup_files:
         col_name = file.replace("encoding_lookup_", "").replace(".csv", "")
         df = pd.read_csv(os.path.join(lookups_path, file))
-        lookups[col_name] = dict(zip(df.original_value, df.encoded_value))
+        lookups[col_name] = dict(zip(df['original_value'], df['encoded_value']))
         print(f"Loaded lookup for: {col_name} ({len(lookups[col_name])} mappings)")
     
     print("Connecting to Kafka consumer...")

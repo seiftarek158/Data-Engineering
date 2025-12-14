@@ -115,7 +115,16 @@ def consume_and_process_stream(**context):
           f"stock_industry ({len(encoding_lookups['stock_industry'])})")
     print(f"  - One-hot encoded: day_names ({len(encoding_lookups['day_names'])})")
     
-    print("Connecting to Kafka consumer...")
+    # Load encoded main dataset (95%)
+    main_data_file = os.path.join(data_path, "integrated_encoded_trades_data.csv")
+    if not os.path.exists(main_data_file):
+        raise FileNotFoundError(f"Main dataset not found: {main_data_file}")
+    
+    print(f"\nLoading encoded main dataset (95%) from {main_data_file}...")
+    main_data = pd.read_csv(main_data_file)
+    print(f"✓ Main dataset loaded: {len(main_data)} records")
+    
+    print("\nConnecting to Kafka consumer...")
     consumer = KafkaConsumer(
         "55_0654_Topic",
         bootstrap_servers="kafka:9092",
@@ -126,8 +135,9 @@ def consume_and_process_stream(**context):
         enable_auto_commit=True,
     )
     
-    processed_records = []
     message_count = 0
+    batch_size = 100
+    batch_records = []
     
     print("Starting to consume messages from Kafka...")
     for message in consumer:
@@ -144,42 +154,37 @@ def consume_and_process_stream(**context):
         
         # Apply encoding using the encode_row function
         encoded_record = encode_row(record, encoding_lookups)
-        processed_records.append(encoded_record)
         
-        if message_count % 100 == 0:
-            print(f"Processed {message_count} messages...")
+        # Add to batch
+        batch_records.append(encoded_record)
+        
+        # Append batch to main_data every 100 records
+        if len(batch_records) >= batch_size:
+            main_data = pd.concat([main_data, pd.DataFrame(batch_records)], ignore_index=True)
+            print(f"Processed and appended batch of {len(batch_records)} messages (Total: {message_count})")
+            batch_records = []
+    
+    # Append any remaining records in the final batch
+    if batch_records:
+        main_data = pd.concat([main_data, pd.DataFrame(batch_records)], ignore_index=True)
+        print(f"Appended final batch of {len(batch_records)} messages")
     
     consumer.close()
-    print(f"Kafka consumer closed. Total messages processed: {len(processed_records)}")
+    print(f"Kafka consumer closed. Total streamed messages processed: {message_count - 1}")
+    print(f"✓ Total records in final dataset: {len(main_data)}")
     
-    if processed_records:
-        print("Creating DataFrame from processed records...")
-        final_df = pd.DataFrame(processed_records)
-        
-        all_cols = [
-            'transaction_id', 'timestamp', 'customer_id', 'stock_ticker',
-            'transaction_type', 'quantity', 'average_trade_size',
-            'cumulative_portfolio_value', 'date', 'customer_key', 'account_type',
-            'avg_trade_size_baseline', 'stock_key', 'company_name',
-            'liquidity_tier', 'sector', 'industry', 'date_key', 'day', 'month',
-            'month_name', 'quarter', 'year', 'day_of_week', 'day_name',
-            'is_weekend', 'is_holiday', 'stock_price'
-        ]
-        
-        for col in all_cols:
-            if col not in final_df.columns:
-                final_df[col] = None
-                print(f"Warning: Column '{col}' was missing, filled with None")
-        
-        final_df = final_df[all_cols]
-        final_df.to_csv(output_file, index=False)
-        print(f"✓ Successfully saved {len(processed_records)} records to {output_file}")
-    else:
-        print("⚠ Warning: No records were processed")
-        raise ValueError("No records were consumed from Kafka stream")
+    # Sort by transaction_id before saving
+    print("\nSorting dataset by transaction_id...")
+    main_data = main_data.sort_values(by='transaction_id').reset_index(drop=True)
+    print("✓ Dataset sorted successfully")
+    
+    # Save the final combined dataset (95% + 5% streamed)
+    main_data.to_csv(output_file, index=False)
+    print(f"✓ Successfully saved {len(main_data)} records to {output_file}")
+    
     
     print("✓ STAGE 3 TASK 2 COMPLETED")
-    return final_df
+    return len(main_data)
 
 
 def save_final_to_postgres(**context):

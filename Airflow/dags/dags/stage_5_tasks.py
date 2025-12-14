@@ -36,16 +36,34 @@ def prepare_visualization(**context):
 
     # Load master encoding lookup
     print("\n[1/9] Loading master encoding lookup...")
-    master_lookup_path = os.path.join(lookups_path, "master_encoding_lookup.json")
-    with open(master_lookup_path, 'r') as f:
-        master_lookup = json.load(f)
+    master_lookup_path = os.path.join(lookups_path, "master_encoding_lookup.csv")
+    master_lookup_df = pd.read_csv(master_lookup_path)
 
-    # Convert string keys to int where needed
+    # Convert CSV format to dictionary lookup
     decoded_lookup = {}
-    for col, mapping in master_lookup.items():
-        decoded_lookup[col] = {int(k) if k.isdigit() else k: v for k, v in mapping.items()}
 
-    print(f"✓ Loaded {len(decoded_lookup)} lookup mappings")
+    # Process label-encoded columns (stock_ticker, transaction_type, etc.)
+    label_cols = ['stock_ticker', 'transaction_type', 'customer_account_type', 'stock_sector', 'stock_industry']
+    for col in label_cols:
+        col_data = master_lookup_df[master_lookup_df['Column Name'] == col]
+        if not col_data.empty and 'Encoded Value' in col_data.columns:
+            decoded_lookup[col] = dict(zip(col_data['Encoded Value'], col_data['Original Value']))
+
+    # Process binary columns (is_weekend, is_holiday)
+    binary_cols = ['is_weekend', 'is_holiday']
+    for col in binary_cols:
+        col_data = master_lookup_df[master_lookup_df['Column Name'] == col]
+        if not col_data.empty and 'Encoded Value' in col_data.columns:
+            decoded_lookup[col] = dict(zip(col_data['Encoded Value'], col_data['Original Value']))
+
+    # Process one-hot encoded column (day_name)
+    day_data = master_lookup_df[master_lookup_df['Column Name'] == 'day_name']
+    if not day_data.empty and 'Original Value' in day_data.columns:
+        # For one-hot encoding, we need to map the original day names
+        decoded_lookup['day_name'] = dict(enumerate(day_data['Original Value'].values))
+
+    print(f"✓ Loaded {len(decoded_lookup)} lookup mappings from CSV")
+
 
     # Load FINAL_STOCKS.csv
     print("\n[2/9] Loading FINAL_STOCKS.csv...")
@@ -57,17 +75,13 @@ def prepare_visualization(**context):
     print("\n[3/9] Decoding categorical columns...")
     df_decoded = df.copy()
     
-    # Decode each column
+    # Decode each column using ACTUAL column names from FINAL_STOCKS.csv
     categorical_mappings = {
         'stock_ticker': 'stock_ticker',
         'transaction_type': 'transaction_type',
-        'account_type': 'account_type',
-        'company_name': 'company_name',
-        'liquidity_tier': 'liquidity_tier',
-        'sector': 'sector',
-        'industry': 'industry',
-        'day_name': 'day_name',
-        'month_name': 'month_name',
+        'customer_account_type': 'customer_account_type',
+        'stock_sector': 'stock_sector',
+        'stock_industry': 'stock_industry',
         'is_weekend': 'is_weekend',
         'is_holiday': 'is_holiday'
     }
@@ -76,10 +90,21 @@ def prepare_visualization(**context):
         if df_col in df_decoded.columns and lookup_key in decoded_lookup:
             df_decoded[df_col] = df_decoded[df_col].map(decoded_lookup[lookup_key])
             print(f"  ✓ Decoded: {df_col}")
+    
+    # Reconstruct day_name from one-hot encoded day_* columns
+    day_columns = [col for col in df_decoded.columns if col.startswith('day_')]
+    if day_columns:
+        def get_day_name(row):
+            for col in day_columns:
+                if row[col] == 1:
+                    return col.replace('day_', '')
+            return None
+        df_decoded['day_name'] = df_decoded.apply(get_day_name, axis=1)
+        print(f"  ✓ Reconstructed: day_name from one-hot encoded columns")
 
-    # Convert timestamp to datetime
+    # Convert timestamp to datetime and extract date
     df_decoded['timestamp'] = pd.to_datetime(df_decoded['timestamp'])
-    df_decoded['date'] = pd.to_datetime(df_decoded['date'])
+    df_decoded['date'] = df_decoded['timestamp'].dt.date
     
     print(f"✓ All categorical columns decoded successfully")
 
@@ -105,7 +130,7 @@ def prepare_visualization(**context):
     # Query 2: Stock Price Trends by Sector (from Spark Analytics 2 + time dimension)
     print("\n[5/9] Creating Query 2: Stock Price Trends by Sector...")
     print("  Using FINAL_STOCKS.csv for time-series data...")
-    viz_2 = df_decoded.groupby(['date', 'sector']).agg({
+    viz_2 = df_decoded.groupby(['date', 'stock_sector']).agg({
         'stock_price': 'mean',
         'quantity': 'sum'
     }).reset_index()
@@ -168,7 +193,7 @@ def prepare_visualization(**context):
     viz_5 = df_decoded.groupby('customer_id').agg({
         'transaction_id': 'count',
         'quantity': 'sum',
-        'cumulative_portfolio_value': 'max'
+        'total_trade_amount': 'sum'
     }).reset_index()
     viz_5.columns = ['customer_id', 'transaction_count', 'total_volume', 'portfolio_value']
     viz_5.to_sql('viz_customer_transaction_distribution', con=engine, if_exists='replace', index=False)
@@ -176,8 +201,8 @@ def prepare_visualization(**context):
 
     # Query 6: Top 10 Customers by Trade Amount
     print("\n[9/9] Creating Query 6: Top 10 Customers by Trade Amount...")
-    viz_6 = df_decoded.groupby(['customer_id', 'account_type']).agg({
-        'cumulative_portfolio_value': 'max',
+    viz_6 = df_decoded.groupby(['customer_id', 'customer_account_type']).agg({
+        'total_trade_amount': 'sum',
         'transaction_id': 'count',
         'quantity': 'sum'
     }).reset_index()
@@ -188,11 +213,11 @@ def prepare_visualization(**context):
 
     # Query 7: Sector Comparison Dashboard (grouped bar charts)
     print("\n[10/11] Creating Query 7: Sector Comparison Dashboard...")
-    viz_7 = df_decoded.groupby('sector').agg({
+    viz_7 = df_decoded.groupby('stock_sector').agg({
         'transaction_id': 'count',
         'quantity': 'sum',
         'stock_price': 'mean',
-        'cumulative_portfolio_value': 'sum'
+        'total_trade_amount': 'sum'
     }).reset_index()
     viz_7.columns = ['sector', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']
     viz_7 = viz_7.sort_values('total_portfolio_value', ascending=False)
@@ -209,7 +234,7 @@ def prepare_visualization(**context):
             'transaction_id': 'count',
             'quantity': 'sum',
             'stock_price': 'mean',
-            'cumulative_portfolio_value': 'sum'
+            'total_trade_amount': 'sum'
         }).reset_index()
         viz_8.columns = ['is_holiday', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']
         
@@ -225,7 +250,7 @@ def prepare_visualization(**context):
             'transaction_id': 'count',
             'quantity': 'sum',
             'stock_price': 'mean',
-            'cumulative_portfolio_value': 'sum'
+            'total_trade_amount': 'sum'
         }).reset_index()
         viz_8.columns = ['is_holiday', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']
         

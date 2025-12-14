@@ -299,8 +299,10 @@ def consume_kafka_stream(topic_name='55_0654_Topic',
         print("="*70)
 
         record_count = 0
+        batch_size = 100
+        batch_records = []
 
-        # Stream messages from Kafka - process and append each row to main_data
+        # Stream messages from Kafka - process and batch append to main_data
         for message in consumer:
             record = message.value
 
@@ -311,12 +313,23 @@ def consume_kafka_stream(topic_name='55_0654_Topic',
                 print("="*70)
                 break
 
-            # Process the record and append to main_data DataFrame
+            # Process the record and add to batch
             processed = process_stream(record, encoding_lookups)
-            main_data = pd.concat([main_data, pd.DataFrame([processed])], ignore_index=True)
+            batch_records.append(processed)
             record_count += 1
             
-            print(f"✓ Processed & Appended record {record_count}: Transaction ID {record.get('transaction_id')}")
+            print(f"✓ Processed record {record_count}: Transaction ID {record.get('transaction_id')}")
+            
+            # Append batch to main_data every 100 records
+            if len(batch_records) >= batch_size:
+                main_data = pd.concat([main_data, pd.DataFrame(batch_records)], ignore_index=True)
+                print(f"✓ Appended batch of {len(batch_records)} records to dataset")
+                batch_records = []
+        
+        # Append any remaining records in the final batch
+        if batch_records:
+            main_data = pd.concat([main_data, pd.DataFrame(batch_records)], ignore_index=True)
+            print(f"✓ Appended final batch of {len(batch_records)} records to dataset")
 
         # Close the consumer
         consumer.close()
