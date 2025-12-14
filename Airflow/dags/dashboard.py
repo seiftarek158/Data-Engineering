@@ -39,11 +39,11 @@ st.set_page_config(
 @st.cache_resource
 def get_database_engine():
     """Create and cache database connection"""
-    db_host = os.getenv('DB_HOST', 'pgdatabase')
-    db_user = os.getenv('DB_USER', 'postgres')
-    db_password = os.getenv('DB_PASSWORD', 'postgres')
+    db_host = os.getenv('DB_HOST', 'airflow-postgres')
+    db_user = os.getenv('DB_USER', 'airflow')
+    db_password = os.getenv('DB_PASSWORD', 'airflow')
     db_port = os.getenv('DB_PORT', '5432')
-    db_name = os.getenv('DB_NAME', 'Trades_Database')
+    db_name = os.getenv('DB_NAME', 'airflow')
 
     connection_string = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
     return create_engine(connection_string)
