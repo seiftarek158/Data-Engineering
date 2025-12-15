@@ -591,8 +591,20 @@ st.header("8️⃣ Holiday vs Non-Holiday Trading Patterns")
 df_viz8 = load_data('viz_holiday_vs_nonholiday_patterns')
 
 if not df_viz8.empty:
-    # Convert is_holiday to readable format
-    df_viz8['period'] = df_viz8['is_holiday'].map({True: 'Holiday', False: 'Non-Holiday', 1: 'Holiday', 0: 'Non-Holiday'})
+    # Convert is_holiday to readable format - handle all possible types
+    def convert_to_period(val):
+        if pd.isna(val):
+            return 'Unknown'
+        # Convert to string first to handle all types
+        val_str = str(val).lower()
+        if val_str in ['1', '1.0', 'true', 'yes']:
+            return 'Holiday'
+        elif val_str in ['0', '0.0', 'false', 'no']:
+            return 'Non-Holiday'
+        else:
+            return 'Non-Holiday'  # Default to Non-Holiday
+    
+    df_viz8['period'] = df_viz8['is_holiday'].apply(convert_to_period)
     
     col1, col2 = st.columns(2)
 
