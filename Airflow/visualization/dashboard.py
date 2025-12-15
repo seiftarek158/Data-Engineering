@@ -62,19 +62,38 @@ def load_data(table_name):
 
 
 def create_download_button(fig, chart_name):
-    """Create export button for HTML"""
-    buffer = io.StringIO()
-    fig.write_html(buffer)
-    html_bytes = buffer.getvalue().encode()
+    """Create export button for PNG/PDF"""
+    col1, col2 = st.columns(2)
     
-    st.download_button(
-        label=f"📥 Download Chart as HTML",
-        data=html_bytes,
-        file_name=f"{chart_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
-        mime="text/html",
-        key=f"html_{chart_name}",
-        use_container_width=True
-    )
+    with col1:
+        # Export as PNG
+        try:
+            img_bytes = fig.to_image(format="png", width=1920, height=1080, scale=2)
+            st.download_button(
+                label=f"📥 Download as PNG",
+                data=img_bytes,
+                file_name=f"{chart_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                mime="image/png",
+                key=f"png_{chart_name}",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.error(f"PNG export failed: {str(e)}")
+    
+    with col2:
+        # Export as PDF
+        try:
+            pdf_bytes = fig.to_image(format="pdf", width=1920, height=1080)
+            st.download_button(
+                label=f"📥 Download as PDF",
+                data=pdf_bytes,
+                file_name=f"{chart_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                key=f"pdf_{chart_name}",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.error(f"PDF export failed: {str(e)}")
 
 
 # ============================================================================
