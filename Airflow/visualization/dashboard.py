@@ -591,32 +591,16 @@ st.header("8️⃣ Holiday vs Non-Holiday Trading Patterns")
 df_viz8 = load_data('viz_holiday_vs_nonholiday_patterns')
 
 if not df_viz8.empty:
-    # Convert is_holiday to readable format - handle all possible types
-    def convert_to_period(val):
-        if pd.isna(val):
-            return 'Unknown'
-        # Convert to string first to handle all types
-        val_str = str(val).lower()
-        if val_str in ['1', '1.0', 'true', 'yes']:
-            return 'Holiday'
-        elif val_str in ['0', '0.0', 'false', 'no']:
-            return 'Non-Holiday'
-        else:
-            return 'Non-Holiday'  # Default to Non-Holiday
-    
-    df_viz8['period'] = df_viz8['is_holiday'].apply(convert_to_period)
-    
+    # Create two-column layout for main visualizations
     col1, col2 = st.columns(2)
 
     with col1:
         fig8a = px.bar(
             df_viz8,
-            x='period',
+            x='is_holiday',
             y='transaction_count',
-            title='Transaction Count: Holiday vs Non-Holiday',
-            labels={'transaction_count': 'Transaction Count', 'period': 'Period'},
-            color='period',
-            color_discrete_map={'Holiday': 'red', 'Non-Holiday': 'green'},
+            title='Transaction Count by Holiday Status',
+            labels={'transaction_count': 'Transaction Count', 'is_holiday': 'Holiday Status'},
             text='transaction_count'
         )
         fig8a.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
@@ -624,69 +608,113 @@ if not df_viz8.empty:
         st.plotly_chart(fig8a, use_container_width=True)
 
     with col2:
-        fig8b = px.pie(
+        fig8b = px.bar(
             df_viz8,
-            values='total_volume',
-            names='period',
-            title='Trading Volume Distribution',
-            color='period',
-            color_discrete_map={'Holiday': 'red', 'Non-Holiday': 'green'},
-            hole=0.4
+            x='is_holiday',
+            y='total_volume',
+            title='Trading Volume by Holiday Status',
+            labels={'total_volume': 'Total Volume', 'is_holiday': 'Holiday Status'},
+            text='total_volume',
+            color='total_volume',
+            color_continuous_scale='Teal'
         )
-        fig8b.update_traces(textposition='inside', textinfo='percent+label')
-        fig8b.update_layout(height=400)
+        fig8b.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+        fig8b.update_layout(height=400, showlegend=False)
         st.plotly_chart(fig8b, use_container_width=True)
 
+    # Export buttons for both charts
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        create_download_button(fig8a, "query8_holiday_transactions")
+    with col_exp2:
+        create_download_button(fig8b, "query8_holiday_volume")
+
     # Comparative metrics
-    st.subheader("📊 Comparative Analysis")
+    st.subheader("📊 Key Metrics")
     
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     
     with col_m1:
-        st.metric("Total Periods", len(df_viz8))
+        st.metric(
+            "Total Records",
+            f"{len(df_viz8)}",
+            help="Number of holiday status groups"
+        )
     with col_m2:
-        total_trans = df_viz8['transaction_count'].sum()
-        st.metric("Total Transactions", f"{total_trans:,}")
+        st.metric(
+            "Total Transactions",
+            f"{df_viz8['transaction_count'].sum():,}",
+            help="Combined transactions"
+        )
     with col_m3:
-        total_vol = df_viz8['total_volume'].sum()
-        st.metric("Total Volume", f"{total_vol:,.0f}")
+        st.metric(
+            "Total Volume",
+            f"{df_viz8['total_volume'].sum():,.0f}",
+            help="Combined trading volume"
+        )
     with col_m4:
-        avg_price = df_viz8['avg_stock_price'].mean()
-        st.metric("Overall Avg Price", f"${avg_price:.2f}")
+        st.metric(
+            "Avg Stock Price",
+            f"${df_viz8['avg_stock_price'].mean():.2f}",
+            help="Average price across all records"
+        )
     
-    # Detailed comparison table
-    st.subheader("📋 Detailed Comparison")
-    display_df = df_viz8[['period', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']].copy()
-    if 'transaction_percentage' in df_viz8.columns:
-        display_df['transaction_percentage'] = df_viz8['transaction_percentage']
-        display_df.columns = ['Period', 'Transaction Count', 'Total Volume', 'Avg Stock Price', 'Total Portfolio Value', 'Transaction %']
-    else:
-        display_df.columns = ['Period', 'Transaction Count', 'Total Volume', 'Avg Stock Price', 'Total Portfolio Value']
+    # Detailed table
+    st.subheader("📋 Data Summary")
+    
+    # Prepare display dataframe
+    display_df = df_viz8[['is_holiday', 'transaction_count', 'total_volume', 'avg_stock_price', 'total_portfolio_value']].copy()
+    
+    # Calculate percentage if possible
+    if 'transaction_count' in display_df.columns:
+        total_trans = display_df['transaction_count'].sum()
+        if total_trans > 0:
+            display_df['pct_of_total'] = (display_df['transaction_count'] / total_trans * 100).round(1)
     
     st.dataframe(display_df, use_container_width=True)
     
-    # Additional visualization: Grouped bar chart
-    fig8c = go.Figure(data=[
-        go.Bar(name='Transaction Count', x=df_viz8['period'], y=df_viz8['transaction_count'], marker_color='indianred'),
-        go.Bar(name='Total Volume', x=df_viz8['period'], y=df_viz8['total_volume'], marker_color='lightsalmon')
-    ])
+    # Additional visualization: Side-by-side comparison
+    st.subheader("📈 Comparison Chart")
+    
+    fig8c = go.Figure()
+    
+    fig8c.add_trace(go.Bar(
+        name='Transaction Count',
+        x=df_viz8['is_holiday'].astype(str),
+        y=df_viz8['transaction_count'],
+        marker_color='steelblue',
+        text=df_viz8['transaction_count'],
+        texttemplate='%{text:,.0f}',
+        textposition='outside',
+        offsetgroup=1
+    ))
+    
+    fig8c.add_trace(go.Bar(
+        name='Total Volume',
+        x=df_viz8['is_holiday'].astype(str),
+        y=df_viz8['total_volume'],
+        marker_color='lightcoral',
+        text=df_viz8['total_volume'],
+        texttemplate='%{text:,.0f}',
+        textposition='outside',
+        offsetgroup=2
+    ))
+    
     fig8c.update_layout(
         barmode='group',
-        title='Holiday vs Non-Holiday: Grouped Comparison',
-        height=400,
-        xaxis_title='Period',
-        yaxis_title='Count / Volume'
+        title='Transaction Count vs Total Volume by Holiday Status',
+        height=450,
+        xaxis_title='Holiday Status',
+        yaxis_title='Count / Volume',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hovermode='x unified'
     )
+    
     st.plotly_chart(fig8c, use_container_width=True)
     
-    # Export buttons for all three charts
-    col_exp1, col_exp2, col_exp3 = st.columns(3)
-    with col_exp1:
-        create_download_button(fig8a, "query8_holiday_bar")
-    with col_exp2:
-        create_download_button(fig8b, "query8_holiday_pie")
-    with col_exp3:
-        create_download_button(fig8c, "query8_holiday_grouped")
+    # Export button for comparison chart
+    create_download_button(fig8c, "query8_holiday_comparison")
+    
 else:
     st.error("❌ No data available. Please run Stage 5 DAG first.")
 
